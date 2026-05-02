@@ -1,0 +1,358 @@
+<?php
+/**
+ * Generate Story ability.
+ *
+ * Uses AI to suggest story caption, overlay text, and media hints for a post.
+ *
+ * @package PRC\Platform\Social_Builder
+ */
+
+declare( strict_types=1 );
+
+namespace PRC\Platform\Social_Builder;
+
+use WP_Error;
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+/**
+ * Registers and executes prc-social-builder/generate-story.
+ *
+ * @since 1.0.0
+ */
+class Generate_Story_Ability {
+
+	/**
+	 * Ability name.
+	 *
+	 * @var string
+	 */
+	public static $ability_name = 'prc-social-builder/generate-story';
+
+	/**
+	 * @var array<int, string>
+	 */
+	public static $allowed_blocks = array();
+
+	/**
+	 * Default instruction for the caption field.
+	 */
+	public static function get_default_caption_instruction(): string {
+		return '1-3 sentences, engaging, fits story UI.';
+	}
+
+	/**
+	 * Default instruction for the overlayText field.
+	 */
+	public static function get_default_overlay_instruction(): string {
+		return 'Very short (under 80 chars), large-type friendly, no hashtags unless required.';
+	}
+
+	/**
+	 * Default instruction for the suggestedMediaDescriptions field.
+	 */
+	public static function get_default_media_descriptions_instruction(): string {
+		return 'One short line per suggested image explaining why it fits the story.';
+	}
+
+	/**
+	 * The hard-coded output format instruction.
+	 *
+	 * Always appended to the final system instruction regardless of any admin override.
+	 * This cannot be changed via the settings UI.
+	 */
+	public static function get_output_format_instruction(): string {
+		return 'CRITICAL: Return ONLY a valid JSON object with keys:
+- "caption" (string)
+- "overlayText" (string)
+- "suggestedMediaIds" (array of integers from the provided list, or [])
+- "suggestedMediaDescriptions" (array of strings, same length as suggestedMediaIds)
+
+Do not use markdown fences or extra prose.';
+	}
+
+	/**
+	 * @hook wp_abilities_api_init
+	 */
+	public function register_ability(): void {
+		wp_register_ability(
+			self::$ability_name,
+			array(
+				'label'               => __( 'Generate Social Builder Story', 'prc-social-builder' ),
+				'description'         => __( 'Uses AI to suggest story caption, overlay text, and image attachments from the post.', 'prc-social-builder' ),
+				'category'            => 'communication',
+				'input_schema'        => array(
+					'type'                 => 'object',
+					'properties'           => array(
+						'postId'                 => array(
+							'type'        => 'number',
+							'description' => 'Post ID for context.',
+						),
+						'platform'               => array(
+							'type'        => 'string',
+							'description' => 'Target platform (e.g. instagram, facebook).',
+						),
+						'additionalInstructions' => array(
+							'type'        => 'string',
+							'description' => 'Optional extra guidance for tone, focus, or style.',
+						),
+					),
+					'required'             => array( 'postId', 'platform' ),
+					'additionalProperties' => false,
+				),
+				'output_schema'       => array(
+					'type'       => 'object',
+					'properties' => array(
+						'caption'                    => array(
+							'type'        => 'string',
+							'description' => 'Story caption text.',
+						),
+						'overlayText'                => array(
+							'type'        => 'string',
+							'description' => 'Short on-image overlay text.',
+						),
+						'suggestedMediaIds'          => array(
+							'type'        => 'array',
+							'items'       => array( 'type' => 'number' ),
+							'description' => 'Suggested attachment IDs from the post.',
+						),
+						'suggestedMediaDescriptions' => array(
+							'type'        => 'array',
+							'items'       => array( 'type' => 'string' ),
+							'description' => 'Parallel descriptions for suggested media.',
+						),
+					),
+				),
+				'execute_callback'    => array( $this, 'generate_story' ),
+				'permission_callback' => function (): bool {
+					return current_user_can( 'edit_posts' );
+				},
+				'meta'                => array(
+					'annotations'    => array(
+						'instructions' => 'Suggests story-style caption and overlay text; maps suggestions to image attachments on the post when possible.',
+						'readonly'     => true,
+						'destructive'  => false,
+						'idempotent'   => false,
+					),
+					'show_in_rest'   => true,
+					'allowed_blocks' => self::$allowed_blocks,
+					'mcp'            => array(
+						'public' => true,
+						'type'   => 'tool',
+					),
+				),
+			)
+		);
+	}
+
+	private function get_content_guidelines( int $post_id ): string {
+		if ( ! function_exists( 'PRC\Platform\AI\Utils\get_content_guidelines_for_post' ) ) {
+			return '';
+		}
+
+		$result = \PRC\Platform\AI\Utils\get_content_guidelines_for_post( $post_id, array( 'task' => 'social_message' ) );
+		if ( empty( $result['packet_text'] ) || ! is_string( $result['packet_text'] ) ) {
+			return '';
+		}
+
+		return trim( $result['packet_text'] );
+	}
+
+	/**
+	 * @return array<int, int>
+	 */
+	private function get_image_attachment_ids_for_post( int $post_id ): array {
+		$ids         = array();
+		$attachments = get_attached_media( 'image', $post_id );
+		foreach ( $attachments as $attachment ) {
+			if ( $attachment instanceof \WP_Post ) {
+				$ids[] = (int) $attachment->ID;
+			}
+		}
+
+		return array_values( array_unique( array_filter( $ids ) ) );
+	}
+
+	/**
+	 * @param array<string, mixed> $input Input parameters.
+	 * @return array<string, mixed>|WP_Error
+	 */
+	public function generate_story( $input ) {
+		$post_id = isset( $input['postId'] ) ? (int) $input['postId'] : 0;
+		if ( ! $post_id ) {
+			return new WP_Error( 'missing_post_id', __( 'No postId provided.', 'prc-social-builder' ) );
+		}
+
+		$platform = isset( $input['platform'] ) ? sanitize_text_field( (string) $input['platform'] ) : '';
+		if ( '' === $platform ) {
+			return new WP_Error( 'missing_platform', __( 'No platform provided.', 'prc-social-builder' ) );
+		}
+
+		$post = get_post( $post_id );
+		if ( ! $post ) {
+			return new WP_Error( 'post_not_found', __( 'Post not found.', 'prc-social-builder' ) );
+		}
+
+		$media_ids = $this->get_image_attachment_ids_for_post( $post_id );
+		$id_list   = array() === $media_ids ? '(none)' : implode( ', ', array_map( 'strval', $media_ids ) );
+
+		$title   = $post->post_title;
+		$content = wp_strip_all_tags( (string) $post->post_content, true );
+		$content = mb_substr( $content, 0, 4000 );
+
+		$additional = isset( $input['additionalInstructions'] ) ? sanitize_text_field( (string) $input['additionalInstructions'] ) : '';
+		$guidelines = $this->get_content_guidelines( $post_id );
+		$system     = $this->build_system_instruction( $platform, $id_list, $guidelines, $additional );
+
+		$prompt = wp_sprintf(
+			"%s\n\nPost Title: %s\n\nPost Content:\n%s\n\nRespond with ONLY valid JSON: {\"caption\":\"...\",\"overlayText\":\"...\",\"suggestedMediaIds\":[...ids from list only...],\"suggestedMediaDescriptions\":[\"...\"]}. Arrays must align in length when IDs are used.",
+			$system,
+			$title,
+			$content
+		);
+
+		$raw  = trim( $this->generate_text_via_ai_client( $prompt ) );
+		$data = $this->parse_story_response( $raw, $media_ids );
+
+		if ( is_wp_error( $data ) ) {
+			$retry = $prompt . "\n\nPrevious JSON was invalid. Fix and return only JSON.";
+			$raw   = trim( $this->generate_text_via_ai_client( $retry ) );
+			$data  = $this->parse_story_response( $raw, $media_ids );
+			if ( is_wp_error( $data ) ) {
+				return $data;
+			}
+		}
+
+		return $data;
+	}
+
+	private function build_system_instruction( string $platform, string $available_ids, string $guidelines, string $additional = '' ): string {
+		// Resolve per-field overrides from settings sub-array.
+		$caption_instruction    = self::get_default_caption_instruction();
+		$overlay_instruction    = self::get_default_overlay_instruction();
+		$media_desc_instruction = self::get_default_media_descriptions_instruction();
+
+		if ( class_exists( Settings::class ) ) {
+			$settings      = Settings::get_settings();
+			$story_prompts = $settings['system_prompts']['generate-story'] ?? array();
+			if ( is_array( $story_prompts ) ) {
+				$override_caption    = trim( (string) ( $story_prompts['caption'] ?? '' ) );
+				$override_overlay    = trim( (string) ( $story_prompts['overlay_text'] ?? '' ) );
+				$override_media_desc = trim( (string) ( $story_prompts['media_descriptions'] ?? '' ) );
+				if ( '' !== $override_caption ) {
+					$caption_instruction = $override_caption;
+				}
+				if ( '' !== $override_overlay ) {
+					$overlay_instruction = $override_overlay;
+				}
+				if ( '' !== $override_media_desc ) {
+					$media_desc_instruction = $override_media_desc;
+				}
+			}
+		}
+
+		// Assemble from hard-coded structure + editable per-field instructions.
+		$text  = 'You are creating a short-form "story" concept for ' . ucfirst( $platform ) . '.';
+		$text .= "\n- caption: " . $caption_instruction;
+		$text .= "\n- overlayText: " . $overlay_instruction;
+		// suggestedMediaIds is always hard-coded — never exposed for editing.
+		$text .= "\n- suggestedMediaIds: choose zero or more IDs ONLY from this list: " . $available_ids . '. If the list is (none), use [].';
+		$text .= "\n- suggestedMediaDescriptions: " . $media_desc_instruction . ' Same count as suggestedMediaIds.';
+
+		if ( '' !== $guidelines ) {
+			$text .= "\n\nSITE CONTENT GUIDELINES (authoritative):\n\n" . $guidelines;
+		}
+
+		// Append per-network admin instructions.
+		if ( class_exists( Settings::class ) ) {
+			$settings             = Settings::get_settings();
+			$network_instructions = trim( $settings['network_instructions'][ $platform ] ?? '' );
+			if ( '' !== $network_instructions ) {
+				$text .= "\n\nNetwork-level instructions:\n" . $network_instructions;
+			}
+		}
+
+		if ( '' !== $additional ) {
+			$text .= "\n\nADDITIONAL INSTRUCTIONS:\n\n" . $additional;
+		}
+
+		$text .= "\n\n" . self::get_output_format_instruction();
+
+		return $text;
+	}
+
+	private function generate_text_via_ai_client( string $prompt ): string {
+		if ( ! function_exists( 'wp_ai_client_prompt' ) ) {
+			return '';
+		}
+		$builder = wp_ai_client_prompt( $prompt );
+		if ( is_wp_error( $builder ) ) {
+			return '';
+		}
+		$result = $builder->generate_text();
+		if ( is_wp_error( $result ) ) {
+			return '';
+		}
+
+		return (string) $result;
+	}
+
+	/**
+	 * @param array<int, int> $allowed_ids
+	 * @return array<string, mixed>|WP_Error
+	 */
+	private function parse_story_response( string $response, array $allowed_ids ) {
+		$json_text = $response;
+		if ( preg_match( '/\{.*\}/s', $response, $matches ) ) {
+			$json_text = $matches[0];
+		}
+
+		$parsed = json_decode( $json_text, true );
+		if ( ! is_array( $parsed ) ) {
+			return new WP_Error( 'parse_error', __( 'Failed to parse story JSON.', 'prc-social-builder' ) );
+		}
+
+		$caption = isset( $parsed['caption'] ) && is_string( $parsed['caption'] ) ? trim( $parsed['caption'] ) : '';
+		$overlay = isset( $parsed['overlayText'] ) && is_string( $parsed['overlayText'] ) ? trim( $parsed['overlayText'] ) : '';
+		$ids     = isset( $parsed['suggestedMediaIds'] ) && is_array( $parsed['suggestedMediaIds'] ) ? $parsed['suggestedMediaIds'] : array();
+		$descs   = isset( $parsed['suggestedMediaDescriptions'] ) && is_array( $parsed['suggestedMediaDescriptions'] ) ? $parsed['suggestedMediaDescriptions'] : array();
+
+		if ( '' === $caption && '' === $overlay ) {
+			return new WP_Error( 'empty_story', __( 'AI returned empty story fields.', 'prc-social-builder' ) );
+		}
+
+		$allowed_lookup = array_fill_keys( $allowed_ids, true );
+		$clean_ids      = array();
+		foreach ( $ids as $id ) {
+			$int = (int) $id;
+			if ( isset( $allowed_lookup[ $int ] ) ) {
+				$clean_ids[] = $int;
+			}
+		}
+		$clean_ids = array_values( array_unique( $clean_ids ) );
+
+		$clean_descs = array();
+		foreach ( $descs as $d ) {
+			if ( is_string( $d ) && '' !== trim( $d ) ) {
+				$clean_descs[] = trim( $d );
+			}
+		}
+
+		$count = count( $clean_ids );
+		if ( $count > 0 && count( $clean_descs ) < $count ) {
+			while ( count( $clean_descs ) < $count ) {
+				$clean_descs[] = '';
+			}
+		}
+		$clean_descs = array_slice( $clean_descs, 0, $count );
+
+		return array(
+			'caption'                    => $caption,
+			'overlayText'                => $overlay,
+			'suggestedMediaIds'          => $clean_ids,
+			'suggestedMediaDescriptions' => $clean_descs,
+		);
+	}
+}

@@ -1,0 +1,45 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "prc-social/thread",
+  "title": "Social Thread",
+  "description": "A container for social media messages on a single platform.",
+  "category": "media",
+  "icon": "share-alt",
+  "textdomain": "prc-social-builder",
+  "attributes": {
+    "platform": {
+      "type": "string",
+      "enum": [
+        "twitter",
+        "facebook",
+        "threads",
+        "bluesky"
+      ],
+      "default": "twitter"
+    },
+    "sourcePostId": {
+      "type": "number",
+      "default": 0
+    },
+    "aiAdditionalInstructions": {
+      "type": "string",
+      "default": ""
+    }
+  },
+  "providesContext": {
+    "prc-social/platform": "platform",
+    "prc-social/sourcePostId": "sourcePostId"
+  },
+  "allowedBlocks": [
+    "prc-social/message"
+  ],
+  "supports": {
+    "html": false,
+    "anchor": false,
+    "className": true
+  },
+  "editorScript": "file:./index.js",
+  "editorStyle": "file:./index.css",
+  "style": "file:./style-index.css"
+}

@@ -1,0 +1,55 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "prc-social/message",
+	"title": "Social Message",
+	"description": "A single social media message within a thread.",
+	"category": "media",
+	"icon": "format-status",
+	"textdomain": "prc-social-builder",
+	"parent": [
+		"prc-social/thread"
+	],
+	"usesContext": [
+		"prc-social/platform",
+		"prc-social/sourcePostId"
+	],
+	"attributes": {
+		"content": {
+			"type": "string",
+			"default": ""
+		},
+		"mediaId": {
+			"type": "number",
+			"default": 0
+		},
+		"mediaUrl": {
+			"type": "string",
+			"default": ""
+		},
+		"mediaType": {
+			"type": "string",
+			"default": "image"
+		},
+		"linkUrl": {
+			"type": "string",
+			"default": ""
+		},
+		"position": {
+			"type": "number",
+			"default": 0
+		},
+		"aiAdditionalInstructions": {
+			"type": "string",
+			"default": ""
+		}
+	},
+	"supports": {
+		"html": false,
+		"anchor": false
+	},
+	"editorScript": "file:./index.js",
+	"editorStyle": "file:./index.css",
+	"style": "file:./style-index.css",
+	"render": "file:./render.php"
+}

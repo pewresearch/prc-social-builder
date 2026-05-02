@@ -1,0 +1,29 @@
+.prc-social-message {
+	border-radius: 0;
+	transition: box-shadow 150ms ease;
+
+	&.is-selected {
+		box-shadow: 0 0 0 1px var(--wp-admin-theme-color);
+	}
+
+	&__edit-overlay {
+		padding: 16px;
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+
+		[contenteditable] {
+			font-size: 15px;
+			line-height: 1.4;
+			color: #0f1419;
+			white-space: pre-wrap;
+			word-wrap: break-word;
+		}
+
+		[contenteditable]:empty::before {
+			content: attr(data-placeholder);
+			color: #9ca3af;
+			pointer-events: none;
+		}
+	}
+}

@@ -1,0 +1,67 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "prc-social/story",
+  "title": "Social Story",
+  "description": "A social media story for Instagram, Facebook, TikTok, or YouTube.",
+  "category": "media",
+  "icon": "format-video",
+  "textdomain": "prc-social-builder",
+  "attributes": {
+    "platform": {
+      "type": "string",
+      "enum": [
+        "instagram",
+        "facebook",
+        "tiktok",
+        "youtube"
+      ],
+      "default": "instagram"
+    },
+    "sourcePostId": {
+      "type": "number",
+      "default": 0
+    },
+    "aiAdditionalInstructions": {
+      "type": "string",
+      "default": ""
+    },
+    "mediaId": {
+      "type": "number",
+      "default": 0
+    },
+    "mediaUrl": {
+      "type": "string",
+      "default": ""
+    },
+    "mediaType": {
+      "type": "string",
+      "enum": [
+        "image",
+        "video"
+      ],
+      "default": "image"
+    },
+    "caption": {
+      "type": "string",
+      "default": ""
+    },
+    "overlayText": {
+      "type": "string",
+      "default": ""
+    },
+    "duration": {
+      "type": "number",
+      "default": 15
+    }
+  },
+  "supports": {
+    "html": false,
+    "anchor": false,
+    "className": true
+  },
+  "editorScript": "file:./index.js",
+  "editorStyle": "file:./index.css",
+  "style": "file:./style-index.css",
+  "render": "file:./render.php"
+}

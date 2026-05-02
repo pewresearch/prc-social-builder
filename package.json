@@ -1,0 +1,18 @@
+{
+	"name": "@prc/social-builder",
+	"version": "1.0.0",
+	"description": "Social media content builder for composing, previewing, and publishing social packages.",
+	"scripts": {
+		"build": "wp-scripts build && wp-scripts build --source-path=src/editor-ui/ --output-path=build/editor-ui/ && wp-scripts build --source-path=src/settings/ --output-path=build/settings/ && wp-scripts build --source-path=src/admin-surfaces/ --output-path=build/admin-surfaces/",
+		"start": "wp-scripts start --source-path=src/editor-ui/ --output-path=build/editor-ui/",
+		"typecheck": "tsc --noEmit"
+	},
+	"devDependencies": {
+		"@wordpress/scripts": "^31.1.0"
+	},
+	"dependencies": {
+		"@prc/components": "*",
+		"@prc/icons": "*",
+		"@wordpress/icons": "^10.21.0"
+	}
+}
