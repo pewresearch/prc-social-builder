@@ -208,8 +208,11 @@ Do not use markdown fences or extra prose. Example:
 		$options = $this->parse_options( $raw, $max_length );
 
 		if ( count( $options ) < self::OPTION_COUNT ) {
-			$raw     = trim( $this->generate_text_via_ai_client( $prompt ) );
-			$options = $this->parse_options( $raw, $max_length );
+			$raw   = trim( $this->generate_text_via_ai_client( $prompt ) );
+			$retry = $this->parse_options( $raw, $max_length );
+			if ( count( $retry ) > count( $options ) ) {
+				$options = $retry;
+			}
 		}
 
 		if ( array() === $options ) {
