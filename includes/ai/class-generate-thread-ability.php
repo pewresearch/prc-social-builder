@@ -257,17 +257,25 @@ Do not use markdown fences or extra prose. Example:
 			$content
 		);
 
-		$raw      = trim( $this->generate_text_via_ai_client( $prompt ) );
+		$raw = $this->generate_text_via_ai_client( $prompt );
+		if ( is_wp_error( $raw ) ) {
+			return $raw;
+		}
+		$raw      = trim( $raw );
 		$messages = $this->parse_thread_messages( $raw, $char_limit, $max_messages );
 
 		if ( is_wp_error( $messages ) ) {
-			$retry    = wp_sprintf(
+			$retry = wp_sprintf(
 				"%s\n\nPost Title: %s\n\nPost Content:\n%s\n\nPrevious output was invalid. Respond with ONLY valid JSON, e.g. [{\"content\":\"...\",\"position\":1},{\"content\":\"...\",\"position\":2}]:",
 				$system,
 				$title,
 				$content
 			);
-			$raw      = trim( $this->generate_text_via_ai_client( $retry ) );
+			$raw = $this->generate_text_via_ai_client( $retry );
+			if ( is_wp_error( $raw ) ) {
+				return $raw;
+			}
+			$raw      = trim( $raw );
 			$messages = $this->parse_thread_messages( $raw, $char_limit, $max_messages );
 			if ( is_wp_error( $messages ) ) {
 				return $messages;
@@ -328,17 +336,22 @@ Do not use markdown fences or extra prose. Example:
 		return $instructions;
 	}
 
-	private function generate_text_via_ai_client( string $prompt ): string {
+	/**
+	 * @return string|WP_Error
+	 */
+	private function generate_text_via_ai_client( string $prompt ) {
 		if ( ! function_exists( 'wp_ai_client_prompt' ) ) {
-			return '';
+			return new WP_Error( 'ai_unavailable', __( 'AI client is not available.', 'prc-social-builder' ) );
 		}
 		$builder = wp_ai_client_prompt( $prompt );
 		if ( is_wp_error( $builder ) ) {
-			return '';
+			return $builder;
 		}
-		$result = $builder->generate_text();
+		$result = $builder
+			->using_model_preference( ...\WordPress\AI\get_preferred_models_for_text_generation() )
+			->generate_text();
 		if ( is_wp_error( $result ) ) {
-			return '';
+			return $result;
 		}
 
 		return (string) $result;

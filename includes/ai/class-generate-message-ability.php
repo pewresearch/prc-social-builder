@@ -204,14 +204,24 @@ Do not use markdown fences or extra prose. Example:
 			self::OPTION_COUNT
 		);
 
-		$raw     = trim( $this->generate_text_via_ai_client( $prompt ) );
+		$raw = $this->generate_text_via_ai_client( $prompt );
+		if ( is_wp_error( $raw ) ) {
+			return $raw;
+		}
+		$raw     = trim( $raw );
 		$options = $this->parse_options( $raw, $max_length );
 
 		if ( count( $options ) < self::OPTION_COUNT ) {
-			$raw   = trim( $this->generate_text_via_ai_client( $prompt ) );
-			$retry = $this->parse_options( $raw, $max_length );
-			if ( count( $retry ) > count( $options ) ) {
-				$options = $retry;
+			$retry_raw = $this->generate_text_via_ai_client( $prompt );
+			if ( is_wp_error( $retry_raw ) ) {
+				if ( array() === $options ) {
+					return $retry_raw;
+				}
+			} else {
+				$retry = $this->parse_options( trim( $retry_raw ), $max_length );
+				if ( count( $retry ) > count( $options ) ) {
+					$options = $retry;
+				}
 			}
 		}
 
@@ -272,17 +282,19 @@ Do not use markdown fences or extra prose. Example:
 		return $text;
 	}
 
-	private function generate_text_via_ai_client( string $prompt ): string {
+	private function generate_text_via_ai_client( string $prompt ): string|WP_Error {
 		if ( ! function_exists( 'wp_ai_client_prompt' ) ) {
-			return '';
+			return new WP_Error( 'ai_unavailable', __( 'AI client is not available.', 'prc-social-builder' ) );
 		}
 		$builder = wp_ai_client_prompt( $prompt );
 		if ( is_wp_error( $builder ) ) {
-			return '';
+			return $builder;
 		}
-		$result = $builder->generate_text();
+		$result = $builder
+			->using_model_preference( ...\WordPress\AI\get_preferred_models_for_text_generation() )
+			->generate_text();
 		if ( is_wp_error( $result ) ) {
-			return '';
+			return $result;
 		}
 
 		return (string) $result;

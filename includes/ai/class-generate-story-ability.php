@@ -213,13 +213,21 @@ Do not use markdown fences or extra prose.';
 			$content
 		);
 
-		$raw  = trim( $this->generate_text_via_ai_client( $prompt ) );
+		$raw = $this->generate_text_via_ai_client( $prompt );
+		if ( is_wp_error( $raw ) ) {
+			return $raw;
+		}
+		$raw  = trim( $raw );
 		$data = $this->parse_story_response( $raw, $media_ids );
 
 		if ( is_wp_error( $data ) ) {
 			$retry = $prompt . "\n\nPrevious JSON was invalid. Fix and return only JSON.";
-			$raw   = trim( $this->generate_text_via_ai_client( $retry ) );
-			$data  = $this->parse_story_response( $raw, $media_ids );
+			$raw   = $this->generate_text_via_ai_client( $retry );
+			if ( is_wp_error( $raw ) ) {
+				return $raw;
+			}
+			$raw  = trim( $raw );
+			$data = $this->parse_story_response( $raw, $media_ids );
 			if ( is_wp_error( $data ) ) {
 				return $data;
 			}
@@ -283,17 +291,19 @@ Do not use markdown fences or extra prose.';
 		return $text;
 	}
 
-	private function generate_text_via_ai_client( string $prompt ): string {
+	private function generate_text_via_ai_client( string $prompt ): string|WP_Error {
 		if ( ! function_exists( 'wp_ai_client_prompt' ) ) {
-			return '';
+			return new WP_Error( 'ai_unavailable', __( 'AI client is not available.', 'prc-social-builder' ) );
 		}
 		$builder = wp_ai_client_prompt( $prompt );
 		if ( is_wp_error( $builder ) ) {
-			return '';
+			return $builder;
 		}
-		$result = $builder->generate_text();
+		$result = $builder
+			->using_model_preference( ...\WordPress\AI\get_preferred_models_for_text_generation() )
+			->generate_text();
 		if ( is_wp_error( $result ) ) {
-			return '';
+			return $result;
 		}
 
 		return (string) $result;
