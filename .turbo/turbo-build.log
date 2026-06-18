@@ -1,5 +1,5 @@
 
-> @prc/social-builder@1.0.1 build
+> @prc/social-builder@1.0.2 build
 > wp-scripts build && wp-scripts build --source-path=src/editor-ui/ --output-path=build/editor-ui/ && wp-scripts build --source-path=src/settings/ --output-path=build/settings/ && wp-scripts build --source-path=src/admin-surfaces/ --output-path=build/admin-surfaces/
 
 assets by path [1m[32mstory/[39m[22m 15.1 KiB
@@ -32,14 +32,14 @@ built modules 2.03 KiB (css/mini-extract) 45.5 KiB (javascript) [1m[33m[built]
     [1m./src/message/index.ts + 11 modules[39m[22m 11.1 KiB [1m[31m[not cacheable][39m[22m [1m[33m[built][39m[22m [1m[33m[code generated][39m[22m
     [1m./src/story/index.ts + 19 modules[39m[22m 19.6 KiB [1m[31m[not cacheable][39m[22m [1m[33m[built][39m[22m [1m[33m[code generated][39m[22m
     [1m./src/thread/index.ts + 16 modules[39m[22m 14.7 KiB [1m[31m[not cacheable][39m[22m [1m[33m[built][39m[22m [1m[33m[code generated][39m[22m
-webpack 5.106.2 compiled [1m[32msuccessfully[39m[22m in 17323 ms
+webpack 5.106.2 compiled [1m[32msuccessfully[39m[22m in 17982 ms
 asset [1m[32mindex.js[39m[22m 5.88 KiB [1m[32m[emitted][39m[22m [1m[32m[minimized][39m[22m (name: index)
 asset [1m[32mindex.asset.php[39m[22m 287 bytes [1m[32m[emitted][39m[22m (name: index)
 Entrypoint [1mindex[39m[22m 6.16 KiB = [1m[32mindex.js[39m[22m 5.88 KiB [1m[32mindex.asset.php[39m[22m 287 bytes
 orphan modules 219 KiB [1m[33m[orphan][39m[22m 331 modules
 runtime modules 663 bytes 3 modules
 [1m./src/editor-ui/index.tsx + 18 modules[39m[22m 11.6 KiB [1m[31m[not cacheable][39m[22m [1m[33m[built][39m[22m [1m[33m[code generated][39m[22m
-webpack 5.106.2 compiled [1m[32msuccessfully[39m[22m in 10047 ms
+webpack 5.106.2 compiled [1m[32msuccessfully[39m[22m in 9636 ms
 assets by chunk 19.7 KiB (name: index)
   asset [1m[32mindex.js[39m[22m 19.5 KiB [1m[32m[emitted][39m[22m [1m[32m[minimized][39m[22m (name: index)
   asset [1m[32mindex.asset.php[39m[22m 203 bytes [1m[32m[emitted][39m[22m (name: index)
@@ -52,7 +52,7 @@ runtime modules 3.07 KiB 5 modules
 built modules 33.8 KiB (javascript) 3.47 KiB (css/mini-extract) [1m[33m[built][39m[22m
   [1m./src/settings/index.tsx + 18 modules[39m[22m 33.8 KiB [1m[31m[not cacheable][39m[22m [1m[33m[built][39m[22m [1m[33m[code generated][39m[22m
   css ../../node_modules/css-loader/dist/cjs.js??ruleSet[1].rules[3].use[1]!../../node_modules/postcss-loader/dist/cjs.js??ruleSet[1].rules[3].use[2]!../../node_modules/sass-loader/dist/cjs.js??ruleSet[1].rules[3].use[3]![1m./src/settings/style.scss[39m[22m 3.47 KiB [1m[33m[built][39m[22m [1m[33m[code generated][39m[22m
-webpack 5.106.2 compiled [1m[32msuccessfully[39m[22m in 13607 ms
+webpack 5.106.2 compiled [1m[32msuccessfully[39m[22m in 18617 ms
 assets by chunk 1.04 KiB (name: index)
   asset [1m[32mindex.js[39m[22m 986 bytes [1m[32m[emitted][39m[22m [1m[32m[minimized][39m[22m (name: index)
   asset [1m[32mindex.asset.php[39m[22m 84 bytes [1m[32m[emitted][39m[22m (name: index)
@@ -65,4 +65,4 @@ runtime modules 2.51 KiB 3 modules
 cacheable modules 63 bytes (javascript) 290 bytes (css/mini-extract)
   [1m./src/admin-surfaces/index.ts[39m[22m 63 bytes [1m[33m[built][39m[22m [1m[33m[code generated][39m[22m
   css ../../node_modules/css-loader/dist/cjs.js??ruleSet[1].rules[3].use[1]!../../node_modules/postcss-loader/dist/cjs.js??ruleSet[1].rules[3].use[2]!../../node_modules/sass-loader/dist/cjs.js??ruleSet[1].rules[3].use[3]![1m./src/admin-surfaces/style.scss[39m[22m 290 bytes [1m[33m[built][39m[22m [1m[33m[code generated][39m[22m
-webpack 5.106.2 compiled [1m[32msuccessfully[39m[22m in 7536 ms
+webpack 5.106.2 compiled [1m[32msuccessfully[39m[22m in 9818 ms
