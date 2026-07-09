@@ -42,6 +42,10 @@
     "aiAdditionalInstructions": {
       "type": "string",
       "default": ""
+    },
+    "numberCheck": {
+      "type": "object",
+      "default": null
     }
   },
   "supports": {

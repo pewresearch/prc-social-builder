@@ -6,11 +6,13 @@ import {
 	InspectorControls,
 	store as blockEditorStore,
 } from '@wordpress/block-editor';
-import { PanelBody, ComboboxControl, Notice } from '@wordpress/components';
+import { PanelBody, ComboboxControl, Notice, ToggleControl, CheckboxControl } from '@wordpress/components';
 import { useSelect } from '@wordpress/data';
 import { store as editorStore } from '@wordpress/editor';
 import { THREAD_PLATFORMS } from '../editor-ui/constants';
 import { ThreadInspectorAI } from './inspector-ai';
+import { SelectReportChildren } from './include-reports';
+
 
 interface AssociatedPost {
 	key: string;
@@ -22,12 +24,16 @@ interface EditProps {
 	attributes: {
 		platform: string;
 		sourcePostId: number;
+		includeReportChildren: boolean;
+		unselectedReportChildren: string;
 		aiAdditionalInstructions: string;
 	};
 	setAttributes: (
 		attrs: Partial<{
 			platform: string;
 			sourcePostId: number;
+			includeReportChildren: boolean;
+			unselectedReportChildren: string;
 			aiAdditionalInstructions: string;
 		}>
 	) => void;
@@ -39,7 +45,7 @@ export default function Edit({
 	setAttributes,
 	clientId,
 }: EditProps) {
-	const { platform, sourcePostId, aiAdditionalInstructions } = attributes;
+	const { platform, sourcePostId, aiAdditionalInstructions, includeReportChildren, unselectedReportChildren } = attributes;
 	const platformConfig = THREAD_PLATFORMS[platform];
 
 	const innerBlockCount = useSelect(
@@ -99,32 +105,44 @@ export default function Edit({
 							)}
 						</Notice>
 					) : (
-						<ComboboxControl
-							__nextHasNoMarginBottom
-							label={__(
-								'Generate content from',
-								'prc-social-builder'
-							)}
-							help={__(
-								'Choose which associated post to use for AI generation and other features.',
-								'prc-social-builder'
-							)}
-							value={
-								sourcePostId > 0 ? String(sourcePostId) : null
-							}
-							options={comboOptions}
-							onChange={(val) =>
-								setAttributes({
-									sourcePostId: val ? Number(val) : 0,
-								})
-							}
-						/>
+						<>
+							<ComboboxControl
+								__nextHasNoMarginBottom
+								label={__(
+									'Generate content from',
+									'prc-social-builder'
+								)}
+								help={__(
+									'Choose which associated post to use for AI generation and other features.',
+									'prc-social-builder'
+								)}
+								value={
+									sourcePostId > 0 ? String(sourcePostId) : null
+								}
+								options={comboOptions}
+								onChange={(val) =>
+									setAttributes({
+										sourcePostId: val ? Number(val) : 0,
+									})
+								}
+							/>
+							 
+							 <SelectReportChildren
+								sourcePostId={sourcePostId}
+								includeReportChildren={includeReportChildren}
+								unselectedReportChildren={unselectedReportChildren}
+								setIncludeChildren={setAttributes}
+								setUnselectedChildren={setAttributes}
+							/>
+						</>
 					)}
 				</PanelBody>
 				<ThreadInspectorAI
 					platform={platform}
 					clientId={clientId}
 					sourcePostId={sourcePostId}
+					includeReportChildren={includeReportChildren}
+					unselectedReportChildren={unselectedReportChildren}
 					aiAdditionalInstructions={aiAdditionalInstructions}
 					setAttributes={setAttributes}
 					innerBlockCount={innerBlockCount}

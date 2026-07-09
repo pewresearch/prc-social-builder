@@ -16,6 +16,9 @@ import {
 	AISuggestionsList,
 } from '@prc/components';
 
+import { THREAD_PLATFORMS } from '../editor-ui/constants';
+import { ThreadMessage, ThreadMessageItem } from './thread-message-item';
+
 declare const prcSocialBuilderAI: {
 	enabled: boolean;
 	threadAbilityName: string;
@@ -23,16 +26,12 @@ declare const prcSocialBuilderAI: {
 	storyAbilityName: string;
 };
 
-interface ThreadMessage {
-	content: string;
-	position: number;
-	linkUrl?: string;
-}
-
 interface InspectorAIProps {
 	platform: string;
 	clientId: string;
 	sourcePostId: number;
+	includeReportChildren: boolean;
+	unselectedReportChildren: string;
 	aiAdditionalInstructions: string;
 	setAttributes: (attrs: { aiAdditionalInstructions: string }) => void;
 	innerBlockCount: number;
@@ -42,6 +41,8 @@ export function ThreadInspectorAI({
 	platform,
 	clientId,
 	sourcePostId,
+	includeReportChildren,
+	unselectedReportChildren,
 	aiAdditionalInstructions,
 	setAttributes,
 	innerBlockCount,
@@ -55,11 +56,12 @@ export function ThreadInspectorAI({
 
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-	const isFacebook = platform === 'facebook';
+	const isSinglePostPlatform =
+		THREAD_PLATFORMS[platform]?.supportsThreads === false;
 	const previousPlatformRef = useRef(platform);
 
 	const [messageCount, setMessageCount] = useState(() => {
-		if (platform === 'facebook') {
+		if (isSinglePostPlatform) {
 			return 1;
 		}
 		return innerBlockCount > 3 ? Math.max(4, innerBlockCount) : 4;
@@ -78,30 +80,34 @@ export function ThreadInspectorAI({
 		}
 	}, [result]);
 
-	// Facebook does not support threads — always a single message for AI generation.
+	// Single-post platforms do not support threads — always one message for AI generation.
 	useEffect(() => {
-		if (isFacebook) {
+		if (isSinglePostPlatform) {
 			setMessageCount(1);
 			previousPlatformRef.current = platform;
 			return;
 		}
-		if (previousPlatformRef.current === 'facebook') {
+		if (
+			previousPlatformRef.current &&
+			THREAD_PLATFORMS[previousPlatformRef.current]?.supportsThreads ===
+				false
+		) {
 			setMessageCount(
 				innerBlockCount > 3 ? Math.max(4, innerBlockCount) : 4
 			);
 		}
 		previousPlatformRef.current = platform;
-	}, [isFacebook, platform, innerBlockCount]);
+	}, [isSinglePostPlatform, platform, innerBlockCount]);
 
 	// Keep slider aligned with inner block count when there are more than three messages.
 	useEffect(() => {
-		if (isFacebook) {
+		if (isSinglePostPlatform) {
 			return;
 		}
 		if (innerBlockCount > 3) {
 			setMessageCount(innerBlockCount);
 		}
-	}, [innerBlockCount, isFacebook]);
+	}, [innerBlockCount, isSinglePostPlatform]);
 
 	const handleGenerate = useCallback(() => {
 		setIsModalOpen(true);
@@ -109,9 +115,19 @@ export function ThreadInspectorAI({
 			postId,
 			platform,
 			messageCount,
+			includeReportChildren,
+			unselectedReportChildren,
 			additionalInstructions: aiAdditionalInstructions || undefined,
 		});
-	}, [fetch, postId, platform, messageCount, aiAdditionalInstructions]);
+	}, [
+		fetch,
+		postId,
+		platform,
+		includeReportChildren,
+		unselectedReportChildren,
+		messageCount,
+		aiAdditionalInstructions,
+	]);
 
 	const handleToggle = useCallback((id: string | number) => {
 		setSelectedIds((prev) => {
@@ -153,6 +169,8 @@ export function ThreadInspectorAI({
 			postId,
 			platform,
 			messageCount,
+			includeReportChildren,
+			unselectedReportChildren,
 			additionalInstructions: aiAdditionalInstructions || undefined,
 		});
 	}, [
@@ -161,6 +179,8 @@ export function ThreadInspectorAI({
 		postId,
 		platform,
 		messageCount,
+		includeReportChildren,
+		unselectedReportChildren,
 		aiAdditionalInstructions,
 	]);
 
@@ -174,14 +194,16 @@ export function ThreadInspectorAI({
 				__nextHasNoMarginBottom
 				label={__('Number of messages', 'prc-social-builder')}
 				value={messageCount}
-				onChange={(val) => setMessageCount(val ?? (isFacebook ? 1 : 4))}
-				min={isFacebook ? 1 : 2}
-				max={isFacebook ? 1 : 10}
-				disabled={isFacebook}
+				onChange={(val) =>
+					setMessageCount(val ?? (isSinglePostPlatform ? 1 : 4))
+				}
+				min={isSinglePostPlatform ? 1 : 2}
+				max={isSinglePostPlatform ? 1 : 10}
+				disabled={isSinglePostPlatform}
 				help={
-					isFacebook
+					isSinglePostPlatform
 						? __(
-								'Facebook does not support threaded posts, so only one message can be generated.',
+								'This platform does not support threaded posts, so only one message can be generated.',
 								'prc-social-builder'
 							)
 						: undefined
@@ -258,20 +280,7 @@ export function ThreadInspectorAI({
 						onToggle={handleToggle}
 						getId={(msg) => msg.position}
 						renderItem={(msg) => (
-							<span
-								style={{ fontSize: '13px', lineHeight: '1.5' }}
-							>
-								<strong
-									style={{
-										display: 'block',
-										marginBottom: '2px',
-									}}
-								>
-									{__('Message', 'prc-social-builder')}{' '}
-									{msg.position}
-								</strong>
-								{msg.content}
-							</span>
+							<ThreadMessageItem message={msg} />
 						)}
 						emptyMessage={__(
 							'No messages generated.',

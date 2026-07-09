@@ -6,6 +6,7 @@ import {
 	AISuggestButton,
 	AILoadingIndicator,
 	AISuggestionPreview,
+	AINumberCheckBadge,
 } from '@prc/components';
 
 declare const prcSocialBuilderAI: {
@@ -18,6 +19,10 @@ declare const prcSocialBuilderAI: {
 interface MessageOption {
 	content: string;
 	linkUrl?: string;
+	numberCheck?: {
+		valid: boolean;
+		flagged: string[];
+	};
 }
 
 interface InspectorAIProps {
@@ -26,6 +31,62 @@ interface InspectorAIProps {
 	aiAdditionalInstructions: string;
 	setAttributes: (attrs: { aiAdditionalInstructions: string }) => void;
 	onApply: (option: MessageOption) => void;
+}
+
+interface OptionCardProps {
+	option: MessageOption;
+	index: number;
+	isSelected: boolean;
+	onSelect: () => void;
+}
+
+function OptionCard({ option, index, isSelected, onSelect }: OptionCardProps) {
+	return (
+		<div
+			role="button"
+			tabIndex={0}
+			aria-pressed={isSelected}
+			onClick={onSelect}
+			onKeyDown={(event) => {
+				if (event.key === 'Enter' || event.key === ' ') {
+					event.preventDefault();
+					onSelect();
+				}
+			}}
+			style={{
+				padding: '8px',
+				marginBottom: '6px',
+				borderRadius: '4px',
+				border: `2px solid ${
+					isSelected
+						? 'var(--wp-admin-theme-color, #3858e9)'
+						: '#e0e0e0'
+				}`,
+				cursor: 'pointer',
+				fontSize: '13px',
+				lineHeight: '1.5',
+				background: isSelected
+					? 'rgba(56, 88, 233, 0.04)'
+					: 'transparent',
+			}}
+		>
+			<span
+				style={{
+					display: 'block',
+					fontWeight: 600,
+					fontSize: '11px',
+					color: '#757575',
+					marginBottom: '4px',
+					textTransform: 'uppercase',
+					letterSpacing: '0.05em',
+				}}
+			>
+				{__('Option', 'prc-social-builder')} {index + 1}{' '}
+				<AINumberCheckBadge numberCheck={option.numberCheck} />
+			</span>
+			{option.content}
+		</div>
+	);
 }
 
 export function MessageInspectorAI({
@@ -138,42 +199,13 @@ export function MessageInspectorAI({
 					onRegenerate={handleFetch}
 				>
 					{result.map((option, index) => (
-						<div
+						<OptionCard
 							key={index}
-							onClick={() => setSelectedIndex(index)}
-							style={{
-								padding: '8px',
-								marginBottom: '6px',
-								borderRadius: '4px',
-								border: `2px solid ${
-									selectedIndex === index
-										? 'var(--wp-admin-theme-color, #3858e9)'
-										: '#e0e0e0'
-								}`,
-								cursor: 'pointer',
-								fontSize: '13px',
-								lineHeight: '1.5',
-								background:
-									selectedIndex === index
-										? 'rgba(56, 88, 233, 0.04)'
-										: 'transparent',
-							}}
-						>
-							<span
-								style={{
-									display: 'block',
-									fontWeight: 600,
-									fontSize: '11px',
-									color: '#757575',
-									marginBottom: '4px',
-									textTransform: 'uppercase',
-									letterSpacing: '0.05em',
-								}}
-							>
-								{__('Option', 'prc-social-builder')} {index + 1}
-							</span>
-							{option.content}
-						</div>
+							option={option}
+							index={index}
+							isSelected={selectedIndex === index}
+							onSelect={() => setSelectedIndex(index)}
+						/>
 					))}
 				</AISuggestionPreview>
 			)}

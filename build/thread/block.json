@@ -14,13 +14,22 @@
         "twitter",
         "facebook",
         "threads",
-        "bluesky"
+        "bluesky",
+        "linkedin"
       ],
       "default": "twitter"
     },
     "sourcePostId": {
       "type": "number",
       "default": 0
+    },
+    "includeReportChildren": {
+      "type": "boolean",
+      "default": true
+    },
+    "unselectedReportChildren": {
+      "type": "string",
+      "default": ""
     },
     "aiAdditionalInstructions": {
       "type": "string",

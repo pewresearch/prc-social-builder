@@ -40,7 +40,7 @@ class Generate_Story_Ability {
 	 * Default instruction for the caption field.
 	 */
 	public static function get_default_caption_instruction(): string {
-		return '1-3 sentences, engaging, fits story UI.';
+		return '1-3 sentences, clear and concise, fits story UI.';
 	}
 
 	/**
@@ -123,6 +123,7 @@ Do not use markdown fences or extra prose.';
 							'items'       => array( 'type' => 'string' ),
 							'description' => 'Parallel descriptions for suggested media.',
 						),
+						'numberCheck'                => Number_Check::get_output_schema_fragment(),
 					),
 				),
 				'execute_callback'    => array( $this, 'generate_story' ),
@@ -233,6 +234,14 @@ Do not use markdown fences or extra prose.';
 			}
 		}
 
+		$number_check = Number_Check::annotate(
+			trim( $data['caption'] . "\n\n" . $data['overlayText'] ),
+			$title . "\n\n" . $content
+		);
+		if ( null !== $number_check ) {
+			$data['numberCheck'] = $number_check;
+		}
+
 		return $data;
 	}
 
@@ -286,6 +295,7 @@ Do not use markdown fences or extra prose.';
 			$text .= "\n\nADDITIONAL INSTRUCTIONS:\n\n" . $additional;
 		}
 
+		$text .= "\n\n" . Prompt_Constraints::get_editorial_neutrality_instruction();
 		$text .= "\n\n" . self::get_output_format_instruction();
 
 		return $text;

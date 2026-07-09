@@ -1,10 +1,9 @@
-import type { ReactNode } from 'react';
-
 export interface ThreadCounts {
 	twitter: number;
 	facebook: number;
 	threads: number;
 	bluesky: number;
+	linkedin: number;
 }
 
 export interface NetworkInstructions {
@@ -12,6 +11,7 @@ export interface NetworkInstructions {
 	facebook: string;
 	threads: string;
 	bluesky: string;
+	linkedin: string;
 	instagram: string;
 	tiktok: string;
 	youtube: string;
@@ -61,19 +61,4 @@ export interface SettingsStoreState {
 	formatInstructions: Record<FormatInstructionKey, string>;
 	storyFieldDefaults: StoryFieldDefaults;
 	isLoaded: boolean;
-}
-
-export interface SettingsAccordionProps {
-	title: string;
-	description: string;
-	children: ReactNode;
-	contentId?: string;
-	headingId?: string;
-	descriptionId?: string;
-}
-
-export interface SettingsAccordionItem {
-	title: string;
-	description: string;
-	slug: string;
 }

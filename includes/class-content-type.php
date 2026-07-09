@@ -329,6 +329,7 @@ class Content_Type {
 				'prc-social/story',
 				'tabor/markdown-comment',
 				'tabor/todo-list',
+				'core/paragraph',
 			);
 			return array_values(
 				array_filter(

@@ -154,13 +154,7 @@ class Hootsuite {
 		}
 
 		$platform = $message_data['platform'] ?? '';
-		$profile_id = null;
-		foreach ( $profiles as $profile ) {
-			if ( strtolower( $profile['type'] ?? '' ) === $platform ) {
-				$profile_id = $profile['id'];
-				break;
-			}
-		}
+		$profile_id = $this->resolve_profile_id( $platform, $profiles );
 
 		if ( ! $profile_id ) {
 			return new WP_Error(
@@ -179,6 +173,41 @@ class Hootsuite {
 		}
 
 		return $this->make_api_request( '/messages', 'POST', $body );
+	}
+
+	/**
+	 * Map a Social Builder platform key to Hootsuite social profile type strings.
+	 *
+	 * @return array<int, string>
+	 */
+	private function get_profile_type_aliases( string $platform ): array {
+		$aliases = array(
+			'linkedin' => array( 'linkedincompany', 'linkedin' ),
+			'facebook' => array( 'facebookpage', 'facebook' ),
+		);
+
+		$platform = strtolower( $platform );
+
+		return $aliases[ $platform ] ?? array( $platform );
+	}
+
+	/**
+	 * Resolve a Hootsuite social profile ID for a platform key.
+	 *
+	 * @param array<int, array<string, mixed>> $profiles
+	 */
+	private function resolve_profile_id( string $platform, array $profiles ): ?string {
+		$aliases = $this->get_profile_type_aliases( $platform );
+
+		foreach ( $aliases as $alias ) {
+			foreach ( $profiles as $profile ) {
+				if ( strtolower( (string) ( $profile['type'] ?? '' ) ) === $alias ) {
+					return isset( $profile['id'] ) ? (string) $profile['id'] : null;
+				}
+			}
+		}
+
+		return null;
 	}
 
 	protected function get_api_key(): string|WP_Error {

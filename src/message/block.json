@@ -7,13 +7,8 @@
 	"category": "media",
 	"icon": "format-status",
 	"textdomain": "prc-social-builder",
-	"parent": [
-		"prc-social/thread"
-	],
-	"usesContext": [
-		"prc-social/platform",
-		"prc-social/sourcePostId"
-	],
+	"parent": ["prc-social/thread"],
+	"usesContext": ["prc-social/platform", "prc-social/sourcePostId"],
 	"attributes": {
 		"content": {
 			"type": "string",
@@ -42,6 +37,10 @@
 		"aiAdditionalInstructions": {
 			"type": "string",
 			"default": ""
+		},
+		"numberCheck": {
+			"type": "object",
+			"default": null
 		}
 	},
 	"supports": {

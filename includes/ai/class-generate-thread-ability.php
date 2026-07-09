@@ -12,6 +12,7 @@ declare( strict_types=1 );
 namespace PRC\Platform\Social_Builder;
 
 use WP_Error;
+use PRC\Platform\Report_Package\get_package_chapters;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -46,10 +47,10 @@ class Generate_Thread_Ability {
 	 * The output format instruction is always appended separately via get_output_format_instruction().
 	 */
 	public static function get_default_system_prompt_template(): string {
-		return 'You are a social media editor creating a thread for {{platform}}.
+		return 'You are a social media copywriter creating a thread for {{platform}}.
 Create 2-{{max_messages}} messages, each at most {{char_limit}} characters.
 
-NEVER reference @PewResearch or other @ handles. Keep content factual and engaging.';
+NEVER reference @PewResearch or other @ handles. Keep content factual and concise.';
 	}
 
 	/**
@@ -59,10 +60,10 @@ NEVER reference @PewResearch or other @ handles. Keep content factual and engagi
 	 * The output format instruction is always appended separately via get_output_format_instruction().
 	 */
 	public static function get_default_single_post_system_prompt_template(): string {
-		return 'You are a social media editor creating a single post for {{platform}} (this platform does not support threaded posts).
+		return 'You are a social media copywriter creating a single post for {{platform}} (this platform does not support threaded posts).
 Create exactly 1 message, at most {{char_limit}} characters.
 
-NEVER reference @PewResearch or other @ handles. Keep content factual and engaging.';
+NEVER reference @PewResearch or other @ handles. Keep content factual and concise.';
 	}
 
 	/**
@@ -102,11 +103,19 @@ Do not use markdown fences or extra prose. Example:
 						),
 						'platform'               => array(
 							'type'        => 'string',
-							'description' => 'The social media platform (e.g. twitter, facebook, threads, bluesky).',
+							'description' => 'The social media platform (e.g. twitter, facebook, threads, bluesky, linkedin).',
 						),
 						'tone'                   => array(
 							'type'        => 'string',
 							'description' => 'Optional tone guidance for the thread.',
+						),
+						'includeReportChildren'                   => array(
+							'type'        => 'boolean',
+							'description' => 'Add children',
+						),
+						'unselectedReportChildren'                   => array(
+							'type'        => 'string',
+							'description' => 'List of Ids to skip',
 						),
 						'additionalInstructions' => array(
 							'type'        => 'string',
@@ -141,6 +150,7 @@ Do not use markdown fences or extra prose. Example:
 										'type'        => 'string',
 										'description' => 'Optional URL to include with this message.',
 									),
+									'numberCheck' => Number_Check::get_output_schema_fragment(),
 								),
 							),
 						),
@@ -190,16 +200,24 @@ Do not use markdown fences or extra prose. Example:
 			'facebook' => 500,
 			'threads'  => 274,
 			'bluesky'  => 274,
+			'linkedin' => 3000,
 		);
 
 		return $limits[ strtolower( $platform ) ] ?? 280;
 	}
 
 	/**
+	 * Platforms that only support a single post (no thread).
+	 */
+	private function is_single_post_platform( string $platform ): bool {
+		return in_array( strtolower( $platform ), array( 'facebook', 'linkedin' ), true );
+	}
+
+	/**
 	 * Resolve the default thread count for a platform from settings, falling back to 4.
 	 */
 	private function get_default_message_count( string $platform ): int {
-		if ( 'facebook' === $platform ) {
+		if ( $this->is_single_post_platform( $platform ) ) {
 			return 1;
 		}
 
@@ -214,12 +232,72 @@ Do not use markdown fences or extra prose. Example:
 		return 4;
 	}
 
+	
+
+	public function prepareContent( $post_id, $use_children, $unselect_ids ){
+		
+		$main_post    = $this->gatherContent( $post_id );
+		$unselect_ids = is_array( $unselect_ids )
+			? array_map( 'intval', $unselect_ids )
+			: array();
+
+		if ( $use_children  && function_exists( '\PRC\Platform\Report_Package\get_package_chapters' ) ) {
+			$chapters = \PRC\Platform\Report_Package\get_package_chapters( $post_id );
+			foreach ( $chapters as $chapter ) {
+				if ( empty( $chapter['id'] ) ) {
+					continue;
+				}
+				$chapter_id = (int) $chapter['id'];
+				if ( (int) $post_id === $chapter_id || in_array( $chapter_id, $unselect_ids, true ) ) {
+					continue;
+				}
+				$child = $this->gatherContent( $chapter_id );
+				$main_post['content'] = wp_sprintf(
+					"%s\n%s\n%s",
+					$main_post['content'],
+					$child['title'],
+					$child['content']
+				);
+			}
+
+		}
+
+		return $main_post;
+	}
+
+	private function gatherContent( $post_id ) { 
+		$post = get_post( $post_id );
+		if ( ! $post ) {
+			return array(
+				'title' => '',
+				'content' => ''
+			);
+			// LOG THIS?? --> new WP_Error( 'post_not_found', __( 'Post not found.', 'prc-social-builder' ) );
+		}
+
+		$title   = $post->post_title;
+		$content = wp_strip_all_tags( (string) $post->post_content, true );
+		$content = mb_substr( $content, 0, 3000 );
+		return array(
+			'title' => $title,
+			'content' => $content
+		);
+	}
+
 	/**
 	 * @param array<string, mixed> $input Input parameters.
 	 * @return array<string, mixed>|WP_Error
 	 */
 	public function generate_thread( $input ) {
 		$post_id = isset( $input['postId'] ) ? (int) $input['postId'] : 0;
+		$use_children = isset( $input['includeReportChildren'] ) ? (bool) $input['includeReportChildren'] : false;
+		$decoded_unselect_ids = isset( $input['unselectedReportChildren'] )
+			? json_decode( (string) $input['unselectedReportChildren'], true )
+			: array();
+		$unselect_ids         = is_array( $decoded_unselect_ids )
+			? array_map( 'intval', $decoded_unselect_ids )
+			: array();
+
 		if ( ! $post_id ) {
 			return new WP_Error( 'missing_post_id', __( 'No postId provided for thread generation.', 'prc-social-builder' ) );
 		}
@@ -234,7 +312,7 @@ Do not use markdown fences or extra prose. Example:
 		$char_limit              = $this->get_platform_char_limit( $platform );
 
 		$default_count = $this->get_default_message_count( $platform );
-		$max_messages  = 'facebook' === $platform
+		$max_messages  = $this->is_single_post_platform( $platform )
 			? 1
 			: ( isset( $input['messageCount'] ) ? max( 2, min( 10, (int) $input['messageCount'] ) ) : $default_count );
 
@@ -243,13 +321,17 @@ Do not use markdown fences or extra prose. Example:
 			return new WP_Error( 'post_not_found', __( 'Post not found.', 'prc-social-builder' ) );
 		}
 
-		$title   = $post->post_title;
-		$content = wp_strip_all_tags( (string) $post->post_content, true );
-		$content = mb_substr( $content, 0, 3000 );
+		// $title   = $post->post_title;
+		// $content = wp_strip_all_tags( (string) $post->post_content, true );
+		// $content = mb_substr( $content, 0, 3000 );
+
+		$gather_content = $this->prepareContent( $post_id, $use_children, $unselect_ids );
+		$title   = $gather_content['title'];
+		$content = mb_substr( $gather_content['content'], 0, 3000 );
 
 		$guidelines = $this->get_content_guidelines( $post_id );
 		$system     = $this->build_system_instruction( $platform, $tone, $additional_instructions, $char_limit, $max_messages, $guidelines );
-
+		
 		$prompt = wp_sprintf(
 			"%s\n\nPost Title: %s\n\nPost Content:\n%s\n\nReturn ONLY a JSON array of objects with keys content, position (1-based integer), and optional linkUrl (string or omit):",
 			$system,
@@ -281,6 +363,15 @@ Do not use markdown fences or extra prose. Example:
 				return $messages;
 			}
 		}
+
+		$source_text = $title . "\n\n" . $gather_content['content'];
+		foreach ( $messages as &$message ) {
+			$number_check = Number_Check::annotate( (string) $message['content'], $source_text );
+			if ( null !== $number_check ) {
+				$message['numberCheck'] = $number_check;
+			}
+		}
+		unset( $message );
 
 		return array( 'messages' => $messages );
 	}
@@ -331,6 +422,7 @@ Do not use markdown fences or extra prose. Example:
 			$instructions .= "\n\nSITE CONTENT GUIDELINES (authoritative):\n\n" . $content_guidelines;
 		}
 
+		$instructions .= "\n\n" . Prompt_Constraints::get_editorial_neutrality_instruction();
 		$instructions .= "\n\n" . self::get_output_format_instruction();
 
 		return $instructions;

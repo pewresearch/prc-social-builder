@@ -10,17 +10,20 @@
 	"attributes": {
 		"platform": {
 			"type": "string",
-			"enum": [
-				"twitter",
-				"facebook",
-				"threads",
-				"bluesky"
-			],
+			"enum": ["twitter", "facebook", "threads", "bluesky", "linkedin"],
 			"default": "twitter"
 		},
 		"sourcePostId": {
 			"type": "number",
 			"default": 0
+		},
+		"includeReportChildren": {
+			"type": "boolean",
+			"default": true
+		},
+		"unselectedReportChildren": {
+			"type": "string",
+			"default": ""
 		},
 		"aiAdditionalInstructions": {
 			"type": "string",
@@ -31,9 +34,7 @@
 		"prc-social/platform": "platform",
 		"prc-social/sourcePostId": "sourcePostId"
 	},
-	"allowedBlocks": [
-		"prc-social/message"
-	],
+	"allowedBlocks": ["prc-social/message"],
 	"supports": {
 		"html": false,
 		"anchor": false,

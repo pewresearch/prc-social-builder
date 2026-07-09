@@ -45,9 +45,9 @@ class Generate_Message_Ability {
 	 * The output format instruction is always appended separately via get_output_format_instruction().
 	 */
 	public static function get_default_system_prompt_template(): string {
-		return 'You are a social media editor. Platform: {{platform}}. Each message must be at most {{max_length}} characters.
+		return 'You are a social media copywriter. Platform: {{platform}}. Each message must be at most {{max_length}} characters.
 
-Produce exactly {{option_count}} meaningfully different angles. Do not use @ handles or hashtags unless essential.';
+Produce exactly {{option_count}} distinct factual angles (different findings, statistics, or sections from the post) without persuasive framing. Do not use @ handles or hashtags unless essential.';
 	}
 
 	/**
@@ -115,6 +115,7 @@ Do not use markdown fences or extra prose. Example:
 										'type'        => 'string',
 										'description' => 'Optional URL.',
 									),
+									'numberCheck' => Number_Check::get_output_schema_fragment(),
 								),
 							),
 						),
@@ -161,6 +162,7 @@ Do not use markdown fences or extra prose. Example:
 			'facebook' => 500,
 			'threads'  => 274,
 			'bluesky'  => 274,
+			'linkedin' => 3000,
 		);
 
 		return $limits[ strtolower( $platform ) ] ?? 280;
@@ -230,6 +232,16 @@ Do not use markdown fences or extra prose. Example:
 		}
 
 		$options = array_slice( $options, 0, self::OPTION_COUNT );
+
+		$source_text = $title . "\n\n" . $content;
+		foreach ( $options as &$option ) {
+			$number_check = Number_Check::annotate( (string) $option['content'], $source_text );
+			if ( null !== $number_check ) {
+				$option['numberCheck'] = $number_check;
+			}
+		}
+		unset( $option );
+
 		while ( count( $options ) < self::OPTION_COUNT ) {
 			$options[] = $options[ count( $options ) - 1 ];
 		}
@@ -277,6 +289,7 @@ Do not use markdown fences or extra prose. Example:
 			$text .= "\n\nSITE CONTENT GUIDELINES (authoritative):\n\n" . $guidelines;
 		}
 
+		$text .= "\n\n" . Prompt_Constraints::get_editorial_neutrality_instruction();
 		$text .= "\n\n" . self::get_output_format_instruction();
 
 		return $text;

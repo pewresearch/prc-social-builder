@@ -39,12 +39,14 @@ class Settings {
 			'facebook' => 1,
 			'threads'  => 4,
 			'bluesky'  => 4,
+			'linkedin' => 1,
 		),
 		'network_instructions' => array(
 			'twitter'   => '',
 			'facebook'  => '',
 			'threads'   => '',
 			'bluesky'   => '',
+			'linkedin'  => '',
 			'instagram' => '',
 			'tiktok'    => '',
 			'youtube'   => '',
@@ -145,10 +147,15 @@ class Settings {
 		);
 
 		if ( file_exists( plugin_dir_path( __DIR__ ) . 'build/settings/style-index.css' ) ) {
+			$style_deps = array( 'wp-components' );
+			if ( in_array( 'prc-components', $asset['dependencies'], true ) ) {
+				$style_deps[] = 'prc-components';
+			}
+
 			wp_enqueue_style(
 				$handle,
 				plugins_url( 'build/settings/style-index.css', PRC_SOCIAL_BUILDER_FILE ),
-				array( 'wp-components' ),
+				$style_deps,
 				$asset['version']
 			);
 		}
@@ -221,8 +228,8 @@ class Settings {
 		if ( isset( $input['thread_counts'] ) && is_array( $input['thread_counts'] ) ) {
 			foreach ( self::$defaults['thread_counts'] as $platform => $default ) {
 				$raw = isset( $input['thread_counts'][ $platform ] ) ? (int) $input['thread_counts'][ $platform ] : $default;
-				// Facebook only supports single posts (no threads).
-				$thread_counts[ $platform ] = 'facebook' === $platform
+				// Facebook and LinkedIn only support single posts (no threads).
+				$thread_counts[ $platform ] = in_array( $platform, array( 'facebook', 'linkedin' ), true )
 					? 1
 					: max( 2, min( 10, $raw ) );
 			}

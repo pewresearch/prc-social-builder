@@ -43,6 +43,14 @@ export const THREAD_PLATFORMS: Record<string, PlatformConfig> = {
 		mediaTypes: ['image'] as const,
 		supportsLinkPreview: true,
 	},
+	linkedin: {
+		name: __('LinkedIn', 'prc-social-builder'),
+		key: 'linkedin',
+		charLimit: 3000,
+		supportsThreads: false,
+		mediaTypes: ['image', 'video'] as const,
+		supportsLinkPreview: true,
+	},
 } as const;
 
 export const STORY_PLATFORMS: Record<string, PlatformConfig> = {

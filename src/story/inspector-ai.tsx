@@ -5,19 +5,14 @@ import { useSelect } from '@wordpress/data';
 import { store as coreStore } from '@wordpress/core-data';
 import { useAISuggest, AISuggestButton, AISuggestModal } from '@prc/components';
 
+import { StoryResult, StorySuggestionPreview } from './suggestion-preview';
+
 declare const prcSocialBuilderAI: {
 	enabled: boolean;
 	threadAbilityName: string;
 	messageAbilityName: string;
 	storyAbilityName: string;
 };
-
-interface StoryResult {
-	caption: string;
-	overlayText: string;
-	suggestedMediaIds: number[];
-	suggestedMediaDescriptions: string[];
-}
 
 interface MediaRecord {
 	id: number;
@@ -198,173 +193,12 @@ export function StoryInspectorAI({
 				}
 			>
 				{result && (
-					<div
-						style={{
-							display: 'flex',
-							flexDirection: 'column',
-							gap: '16px',
-						}}
-					>
-						<div>
-							<strong
-								style={{
-									display: 'block',
-									fontSize: '11px',
-									textTransform: 'uppercase',
-									letterSpacing: '0.05em',
-									color: '#757575',
-									marginBottom: '4px',
-								}}
-							>
-								{__('Caption', 'prc-social-builder')}
-							</strong>
-							<p
-								style={{
-									margin: 0,
-									fontSize: '13px',
-									lineHeight: '1.5',
-								}}
-							>
-								{result.caption}
-							</p>
-						</div>
-
-						<div>
-							<strong
-								style={{
-									display: 'block',
-									fontSize: '11px',
-									textTransform: 'uppercase',
-									letterSpacing: '0.05em',
-									color: '#757575',
-									marginBottom: '4px',
-								}}
-							>
-								{__('Overlay Text', 'prc-social-builder')}
-							</strong>
-							<p
-								style={{
-									margin: 0,
-									fontSize: '13px',
-									lineHeight: '1.5',
-								}}
-							>
-								{result.overlayText}
-							</p>
-						</div>
-
-						{result.suggestedMediaIds?.length > 0 && (
-							<div>
-								<strong
-									style={{
-										display: 'block',
-										fontSize: '11px',
-										textTransform: 'uppercase',
-										letterSpacing: '0.05em',
-										color: '#757575',
-										marginBottom: '8px',
-									}}
-								>
-									{__(
-										'Suggested Media (click to select)',
-										'prc-social-builder'
-									)}
-								</strong>
-								<div
-									style={{
-										display: 'flex',
-										flexDirection: 'column',
-										gap: '8px',
-									}}
-								>
-									{result.suggestedMediaIds.map(
-										(id, index) => {
-											const media = mediaRecords[
-												index
-											] as MediaRecord | null;
-											const isSelected =
-												selectedMediaIndex === index;
-											return (
-												<div
-													key={id}
-													onClick={() =>
-														setSelectedMediaIndex(
-															isSelected
-																? null
-																: index
-														)
-													}
-													style={{
-														display: 'flex',
-														alignItems:
-															'flex-start',
-														gap: '8px',
-														padding: '8px',
-														borderRadius: '4px',
-														border: `2px solid ${
-															isSelected
-																? 'var(--wp-admin-theme-color, #3858e9)'
-																: '#e0e0e0'
-														}`,
-														cursor: 'pointer',
-														background: isSelected
-															? 'rgba(56, 88, 233, 0.04)'
-															: 'transparent',
-													}}
-												>
-													{media?.source_url && (
-														<img
-															src={
-																media.source_url
-															}
-															alt={
-																media.alt_text ??
-																''
-															}
-															style={{
-																width: '48px',
-																height: '48px',
-																objectFit:
-																	'cover',
-																borderRadius:
-																	'4px',
-																flexShrink: 0,
-															}}
-														/>
-													)}
-													<span
-														style={{
-															fontSize: '12px',
-															lineHeight: '1.4',
-															color: '#1e1e1e',
-														}}
-													>
-														{result
-															.suggestedMediaDescriptions[
-															index
-														] ||
-															`Attachment #${id}`}
-													</span>
-												</div>
-											);
-										}
-									)}
-								</div>
-								<p
-									style={{
-										fontSize: '11px',
-										color: '#757575',
-										margin: '6px 0 0',
-									}}
-								>
-									{__(
-										'Select a media item to apply it to the story, or leave unselected to keep existing media.',
-										'prc-social-builder'
-									)}
-								</p>
-							</div>
-						)}
-					</div>
+					<StorySuggestionPreview
+						result={result}
+						mediaRecords={mediaRecords}
+						selectedMediaIndex={selectedMediaIndex}
+						onSelectMedia={setSelectedMediaIndex}
+					/>
 				)}
 			</AISuggestModal>
 		</PanelBody>
