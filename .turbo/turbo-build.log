@@ -1,5 +1,5 @@
 
-> @prc/social-builder@1.1.0 build
+> @prc/social-builder@1.0.1 build
 > wp-scripts build && wp-scripts build --source-path=src/editor-ui/ --output-path=build/editor-ui/ && wp-scripts build --source-path=src/settings/ --output-path=build/settings/ && wp-scripts build --source-path=src/admin-surfaces/ --output-path=build/admin-surfaces/
 
 assets by path story/ 15.8 KiB
@@ -32,14 +32,14 @@ built modules 2.03 KiB (css/mini-extract) 55.7 KiB (javascript) [built]
     ./src/message/index.ts + 11 modules 15.3 KiB [not cacheable] [built] [code generated]
     ./src/story/index.ts + 20 modules 20.3 KiB [not cacheable] [built] [code generated]
     ./src/thread/index.ts + 19 modules 20.1 KiB [not cacheable] [built] [code generated]
-webpack 5.106.2 compiled successfully in 4233 ms
+webpack 5.106.2 compiled successfully in 4313 ms
 asset index.js 5.88 KiB [emitted] [minimized] (name: index)
 asset index.asset.php 287 bytes [emitted] (name: index)
 Entrypoint index 6.16 KiB = index.js 5.88 KiB index.asset.php 287 bytes
 orphan modules 219 KiB [orphan] 331 modules
 runtime modules 663 bytes 3 modules
 ./src/editor-ui/index.tsx + 18 modules 11.6 KiB [not cacheable] [built] [code generated]
-webpack 5.106.2 compiled successfully in 2300 ms
+webpack 5.106.2 compiled successfully in 2584 ms
 assets by chunk 6.85 KiB (name: index)
   asset index.js 6.68 KiB [emitted] [minimized] (name: index)
   asset index.asset.php 174 bytes [emitted] (name: index)
@@ -52,7 +52,7 @@ runtime modules 2.51 KiB 3 modules
 built modules 9.02 KiB (javascript) 619 bytes (css/mini-extract) [built]
   ./src/settings/index.tsx + 10 modules 9.02 KiB [not cacheable] [built] [code generated]
   css ../../node_modules/css-loader/dist/cjs.js??ruleSet[1].rules[3].use[1]!../../node_modules/postcss-loader/dist/cjs.js??ruleSet[1].rules[3].use[2]!../../node_modules/sass-loader/dist/cjs.js??ruleSet[1].rules[3].use[3]!./src/settings/style.scss 619 bytes [built] [code generated]
-webpack 5.106.2 compiled successfully in 1831 ms
+webpack 5.106.2 compiled successfully in 3376 ms
 assets by chunk 1.04 KiB (name: index)
   asset index.js 986 bytes [emitted] [minimized] (name: index)
   asset index.asset.php 84 bytes [emitted] (name: index)
@@ -65,4 +65,4 @@ runtime modules 2.51 KiB 3 modules
 cacheable modules 63 bytes (javascript) 290 bytes (css/mini-extract)
   ./src/admin-surfaces/index.ts 63 bytes [built] [code generated]
   css ../../node_modules/css-loader/dist/cjs.js??ruleSet[1].rules[3].use[1]!../../node_modules/postcss-loader/dist/cjs.js??ruleSet[1].rules[3].use[2]!../../node_modules/sass-loader/dist/cjs.js??ruleSet[1].rules[3].use[3]!./src/admin-surfaces/style.scss 290 bytes [built] [code generated]
-webpack 5.106.2 compiled successfully in 2304 ms
+webpack 5.106.2 compiled successfully in 3297 ms
