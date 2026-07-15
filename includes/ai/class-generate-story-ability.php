@@ -25,6 +25,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Generate_Story_Ability {
 
 	/**
+	 * Plugin file used to validate activation on the target site.
+	 *
+	 * @var string
+	 */
+	private const PLUGIN_FILE = 'prc-social-builder/prc-social-builder.php';
+
+	/**
 	 * Ability name.
 	 *
 	 * @var string
@@ -98,6 +105,7 @@ Do not use markdown fences or extra prose.';
 							'type'        => 'string',
 							'description' => 'Optional extra guidance for tone, focus, or style.',
 						),
+						'site_id'                => \PRC\Platform\AI\Utils\site_id_input_schema_property(),
 					),
 					'required'             => array( 'postId', 'platform' ),
 					'additionalProperties' => false,
@@ -126,13 +134,25 @@ Do not use markdown fences or extra prose.';
 						'numberCheck'                => Number_Check::get_output_schema_fragment(),
 					),
 				),
-				'execute_callback'    => array( $this, 'generate_story' ),
-				'permission_callback' => function (): bool {
-					return current_user_can( 'edit_posts' );
+				'execute_callback'    => function ( $input ) {
+					return $this->with_site(
+						$input,
+						function () use ( $input ) {
+							return $this->generate_story( $input );
+						}
+					);
+				},
+				'permission_callback' => function ( $input = null ) {
+					return $this->with_site(
+						$input,
+						function () {
+							return current_user_can( 'edit_posts' );
+						}
+					);
 				},
 				'meta'                => array(
 					'annotations'    => array(
-						'instructions' => 'Suggests story-style caption and overlay text; maps suggestions to image attachments on the post when possible.',
+						'instructions' => 'Suggests story-style caption and overlay text; maps suggestions to image attachments on the post when possible. Optionally pass site_id to run against a specific multisite blog; defaults to the content site (20). If this plugin is inactive on the target site, the ability returns plugin_inactive_on_site.',
 						'readonly'     => true,
 						'destructive'  => false,
 						'idempotent'   => false,
@@ -420,6 +440,21 @@ Do not use markdown fences or extra prose.';
 			'overlayText'                => $overlay,
 			'suggestedMediaIds'          => $clean_ids,
 			'suggestedMediaDescriptions' => $clean_descs,
+		);
+	}
+
+	/**
+	 * Run a callback on the requested target site.
+	 *
+	 * @param array|null $input    Ability input.
+	 * @param callable   $callback Callback to run after site validation/switching.
+	 * @return mixed
+	 */
+	private function with_site( $input, callable $callback ) {
+		return \PRC\Platform\AI\Utils\with_site(
+			\PRC\Platform\AI\Utils\resolve_site_id( is_array( $input ) ? $input : null ),
+			self::PLUGIN_FILE,
+			$callback
 		);
 	}
 }
