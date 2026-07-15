@@ -251,6 +251,13 @@ Do not use markdown fences or extra prose. Example:
 				if ( (int) $post_id === $chapter_id || in_array( $chapter_id, $unselect_ids, true ) ) {
 					continue;
 				}
+				if ( ! current_user_can( 'edit_post', $chapter_id ) ) {
+					return new WP_Error(
+						'forbidden_report_child',
+						__( 'You cannot generate social copy from one or more report chapters.', 'prc-social-builder' ),
+						array( 'status' => 403 )
+					);
+				}
 				$child = $this->gatherContent( $chapter_id );
 				$main_post['content'] = wp_sprintf(
 					"%s\n%s\n%s",
@@ -307,6 +314,14 @@ Do not use markdown fences or extra prose. Example:
 			return new WP_Error( 'missing_platform', __( 'No platform provided.', 'prc-social-builder' ) );
 		}
 
+		if ( ! current_user_can( 'edit_post', $post_id ) ) {
+			return new WP_Error(
+				'forbidden_post',
+				__( 'You cannot generate social copy for this post.', 'prc-social-builder' ),
+				array( 'status' => 403 )
+			);
+		}
+
 		$tone                    = isset( $input['tone'] ) ? sanitize_text_field( (string) $input['tone'] ) : '';
 		$additional_instructions = isset( $input['additionalInstructions'] ) ? sanitize_textarea_field( (string) $input['additionalInstructions'] ) : '';
 		$char_limit              = $this->get_platform_char_limit( $platform );
@@ -326,12 +341,21 @@ Do not use markdown fences or extra prose. Example:
 		// $content = mb_substr( $content, 0, 3000 );
 
 		$gather_content = $this->prepareContent( $post_id, $use_children, $unselect_ids );
-		$title   = $gather_content['title'];
-		$content = mb_substr( $gather_content['content'], 0, 3000 );
+		if ( is_wp_error( $gather_content ) ) {
+			return $gather_content;
+		}
+		$title         = $gather_content['title'];
+		$source_prefix = $title . "\n\n";
+		$content       = mb_substr(
+			$gather_content['content'],
+			0,
+			max( 0, Editorial_Passes::SOURCE_CHAR_LIMIT - mb_strlen( $source_prefix ) )
+		);
+		$source_text   = $source_prefix . $content;
 
 		$guidelines = $this->get_content_guidelines( $post_id );
 		$system     = $this->build_system_instruction( $platform, $tone, $additional_instructions, $char_limit, $max_messages, $guidelines );
-		
+
 		$prompt = wp_sprintf(
 			"%s\n\nPost Title: %s\n\nPost Content:\n%s\n\nReturn ONLY a JSON array of objects with keys content, position (1-based integer), and optional linkUrl (string or omit):",
 			$system,
@@ -364,14 +388,30 @@ Do not use markdown fences or extra prose. Example:
 			}
 		}
 
-		$source_text = $title . "\n\n" . $gather_content['content'];
-		foreach ( $messages as &$message ) {
-			$number_check = Number_Check::annotate( (string) $message['content'], $source_text );
-			if ( null !== $number_check ) {
-				$message['numberCheck'] = $number_check;
+		$items = array();
+		foreach ( $messages as $index => $message ) {
+			$items[] = array(
+				'id'   => 'thread-message-' . $index,
+				'text' => (string) $message['content'],
+			);
+		}
+
+		$edited_items = Editorial_Passes::apply_batch( $items, $source_text );
+		if ( is_wp_error( $edited_items ) ) {
+			return $edited_items;
+		}
+
+		foreach ( $edited_items as $index => $item ) {
+			$messages[ $index ]['content'] = $item['text'];
+			$items[ $index ]['text']       = $item['text'];
+		}
+
+		$number_checks = Number_Check::annotate_many( $items, $source_text );
+		if ( null !== $number_checks ) {
+			foreach ( $items as $index => $item ) {
+				$messages[ $index ]['numberCheck'] = $number_checks[ $item['id'] ];
 			}
 		}
-		unset( $message );
 
 		return array( 'messages' => $messages );
 	}
@@ -422,7 +462,6 @@ Do not use markdown fences or extra prose. Example:
 			$instructions .= "\n\nSITE CONTENT GUIDELINES (authoritative):\n\n" . $content_guidelines;
 		}
 
-		$instructions .= "\n\n" . Prompt_Constraints::get_editorial_neutrality_instruction();
 		$instructions .= "\n\n" . self::get_output_format_instruction();
 
 		return $instructions;

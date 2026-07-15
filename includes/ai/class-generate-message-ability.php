@@ -183,6 +183,14 @@ Do not use markdown fences or extra prose. Example:
 			return new WP_Error( 'missing_platform', __( 'No platform provided.', 'prc-social-builder' ) );
 		}
 
+		if ( ! current_user_can( 'edit_post', $post_id ) ) {
+			return new WP_Error(
+				'forbidden_post',
+				__( 'You cannot generate social copy for this post.', 'prc-social-builder' ),
+				array( 'status' => 403 )
+			);
+		}
+
 		$tone    = isset( $input['tone'] ) ? sanitize_text_field( (string) $input['tone'] ) : '';
 		$context = isset( $input['context'] ) ? sanitize_textarea_field( (string) $input['context'] ) : '';
 
@@ -191,9 +199,16 @@ Do not use markdown fences or extra prose. Example:
 			return new WP_Error( 'post_not_found', __( 'Post not found.', 'prc-social-builder' ) );
 		}
 
-		$max_length = $this->get_max_length_for_platform( $platform );
-		$title      = $post->post_title;
-		$content    = wp_strip_all_tags( (string) $post->post_content, true );
+		$max_length    = $this->get_max_length_for_platform( $platform );
+		$title         = $post->post_title;
+		$source_prefix = $title . "\n\n";
+		$content       = wp_strip_all_tags( (string) $post->post_content, true );
+		$content       = mb_substr(
+			$content,
+			0,
+			max( 0, Editorial_Passes::SOURCE_CHAR_LIMIT - mb_strlen( $source_prefix ) )
+		);
+		$source_text   = $source_prefix . $content;
 
 		$guidelines = $this->get_content_guidelines( $post_id );
 		$system     = $this->build_system_instruction( $platform, $tone, $context, $max_length, $guidelines );
@@ -233,14 +248,30 @@ Do not use markdown fences or extra prose. Example:
 
 		$options = array_slice( $options, 0, self::OPTION_COUNT );
 
-		$source_text = $title . "\n\n" . $content;
-		foreach ( $options as &$option ) {
-			$number_check = Number_Check::annotate( (string) $option['content'], $source_text );
-			if ( null !== $number_check ) {
-				$option['numberCheck'] = $number_check;
+		$items = array();
+		foreach ( $options as $index => $option ) {
+			$items[] = array(
+				'id'   => 'message-option-' . $index,
+				'text' => (string) $option['content'],
+			);
+		}
+
+		$edited_items = Editorial_Passes::apply_batch( $items, $source_text );
+		if ( is_wp_error( $edited_items ) ) {
+			return $edited_items;
+		}
+
+		foreach ( $edited_items as $index => $item ) {
+			$options[ $index ]['content'] = $item['text'];
+			$items[ $index ]['text']      = $options[ $index ]['content'];
+		}
+
+		$number_checks = Number_Check::annotate_many( $items, $source_text );
+		if ( null !== $number_checks ) {
+			foreach ( $items as $index => $item ) {
+				$options[ $index ]['numberCheck'] = $number_checks[ $item['id'] ];
 			}
 		}
-		unset( $option );
 
 		while ( count( $options ) < self::OPTION_COUNT ) {
 			$options[] = $options[ count( $options ) - 1 ];
@@ -289,7 +320,6 @@ Do not use markdown fences or extra prose. Example:
 			$text .= "\n\nSITE CONTENT GUIDELINES (authoritative):\n\n" . $guidelines;
 		}
 
-		$text .= "\n\n" . Prompt_Constraints::get_editorial_neutrality_instruction();
 		$text .= "\n\n" . self::get_output_format_instruction();
 
 		return $text;

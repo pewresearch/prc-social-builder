@@ -34,14 +34,15 @@ class Settings {
 	 * @var array<string, mixed>
 	 */
 	private static array $defaults = array(
-		'thread_counts'        => array(
+		'enable_neutrality_pass' => true,
+		'thread_counts'          => array(
 			'twitter'  => 4,
 			'facebook' => 1,
 			'threads'  => 4,
 			'bluesky'  => 4,
 			'linkedin' => 1,
 		),
-		'network_instructions' => array(
+		'network_instructions'   => array(
 			'twitter'   => '',
 			'facebook'  => '',
 			'threads'   => '',
@@ -51,7 +52,7 @@ class Settings {
 			'tiktok'    => '',
 			'youtube'   => '',
 		),
-		'system_prompts'       => array(
+		'system_prompts'         => array(
 			'generate-thread'  => '',
 			'generate-message' => '',
 			'generate-story'   => array(
@@ -92,15 +93,18 @@ class Settings {
 		$merged_prompts['generate-story'] = array_merge( $default_story, $stored_story );
 
 		return array(
-			'thread_counts'        => array_merge(
+			'enable_neutrality_pass' => array_key_exists( 'enable_neutrality_pass', $stored )
+				? (bool) filter_var( $stored['enable_neutrality_pass'], FILTER_VALIDATE_BOOLEAN )
+				: (bool) self::$defaults['enable_neutrality_pass'],
+			'thread_counts'          => array_merge(
 				self::$defaults['thread_counts'],
 				is_array( $stored['thread_counts'] ?? null ) ? $stored['thread_counts'] : array()
 			),
-			'network_instructions' => array_merge(
+			'network_instructions'   => array_merge(
 				self::$defaults['network_instructions'],
 				is_array( $stored['network_instructions'] ?? null ) ? $stored['network_instructions'] : array()
 			),
-			'system_prompts'       => $merged_prompts,
+			'system_prompts'         => $merged_prompts,
 		);
 	}
 
@@ -276,10 +280,15 @@ class Settings {
 			$system_prompts = self::$defaults['system_prompts'];
 		}
 
+		$enable_neutrality_pass = array_key_exists( 'enable_neutrality_pass', $input )
+			? (bool) filter_var( $input['enable_neutrality_pass'], FILTER_VALIDATE_BOOLEAN )
+			: (bool) self::$defaults['enable_neutrality_pass'];
+
 		return array(
-			'thread_counts'        => $thread_counts,
-			'network_instructions' => $network_instructions,
-			'system_prompts'       => $system_prompts,
+			'enable_neutrality_pass' => $enable_neutrality_pass,
+			'thread_counts'          => $thread_counts,
+			'network_instructions'   => $network_instructions,
+			'system_prompts'         => $system_prompts,
 		);
 	}
 

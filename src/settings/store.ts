@@ -18,6 +18,7 @@ const DEFAULT_STORY_FIELD_PROMPTS: StoryFieldPrompts = {
 };
 
 const DEFAULT_SETTINGS: Settings = {
+	enable_neutrality_pass: true,
 	thread_counts: {
 		twitter: 4,
 		facebook: 1,

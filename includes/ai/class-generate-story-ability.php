@@ -191,6 +191,14 @@ Do not use markdown fences or extra prose.';
 			return new WP_Error( 'missing_platform', __( 'No platform provided.', 'prc-social-builder' ) );
 		}
 
+		if ( ! current_user_can( 'edit_post', $post_id ) ) {
+			return new WP_Error(
+				'forbidden_post',
+				__( 'You cannot generate social copy for this post.', 'prc-social-builder' ),
+				array( 'status' => 403 )
+			);
+		}
+
 		$post = get_post( $post_id );
 		if ( ! $post ) {
 			return new WP_Error( 'post_not_found', __( 'Post not found.', 'prc-social-builder' ) );
@@ -234,12 +242,52 @@ Do not use markdown fences or extra prose.';
 			}
 		}
 
-		$number_check = Number_Check::annotate(
-			trim( $data['caption'] . "\n\n" . $data['overlayText'] ),
-			$title . "\n\n" . $content
-		);
-		if ( null !== $number_check ) {
-			$data['numberCheck'] = $number_check;
+		$source_text = mb_substr( $title . "\n\n" . $content, 0, Editorial_Passes::SOURCE_CHAR_LIMIT );
+		$items       = array();
+		if ( '' !== $data['caption'] ) {
+			$data['caption'] = mb_substr( $data['caption'], 0, Editorial_Passes::MAX_ITEM_CHARS );
+			$items[]         = array(
+				'id'   => 'caption',
+				'text' => $data['caption'],
+			);
+		}
+		if ( '' !== $data['overlayText'] ) {
+			$data['overlayText'] = mb_substr( $data['overlayText'], 0, 80 );
+			$items[]             = array(
+				'id'   => 'overlayText',
+				'text' => $data['overlayText'],
+			);
+		}
+
+		$edited_items = Editorial_Passes::apply_batch( $items, $source_text );
+		if ( is_wp_error( $edited_items ) ) {
+			return $edited_items;
+		}
+
+		$items = array();
+		foreach ( $edited_items as $item ) {
+			if ( 'caption' === $item['id'] ) {
+				$data['caption'] = $item['text'];
+			} elseif ( 'overlayText' === $item['id'] ) {
+				$data['overlayText'] = $item['text'];
+			}
+			$items[] = array(
+				'id'   => $item['id'],
+				'text' => $data[ $item['id'] ],
+			);
+		}
+
+		$number_checks = Number_Check::annotate_many( $items, $source_text );
+		if ( null !== $number_checks ) {
+			$flagged = array();
+			foreach ( $number_checks as $number_check ) {
+				$flagged = array_merge( $flagged, $number_check['flagged'] );
+			}
+			$flagged             = array_values( array_unique( $flagged ) );
+			$data['numberCheck'] = array(
+				'valid'   => array() === $flagged,
+				'flagged' => $flagged,
+			);
 		}
 
 		return $data;
@@ -295,7 +343,6 @@ Do not use markdown fences or extra prose.';
 			$text .= "\n\nADDITIONAL INSTRUCTIONS:\n\n" . $additional;
 		}
 
-		$text .= "\n\n" . Prompt_Constraints::get_editorial_neutrality_instruction();
 		$text .= "\n\n" . self::get_output_format_instruction();
 
 		return $text;

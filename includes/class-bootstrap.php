@@ -69,7 +69,7 @@ class Bootstrap {
 		if ( ! class_exists( '\WordPress\AI\Abstracts\Abstract_Feature' ) ) {
 			return;
 		}
-		require_once plugin_dir_path( __DIR__ ) . '/includes/ai/class-prompt-constraints.php';
+		require_once plugin_dir_path( __DIR__ ) . '/includes/ai/class-editorial-passes.php';
 		require_once plugin_dir_path( __DIR__ ) . '/includes/ai/class-number-check.php';
 		require_once plugin_dir_path( __DIR__ ) . '/includes/ai/class-generate-thread-ability.php';
 		require_once plugin_dir_path( __DIR__ ) . '/includes/ai/class-generate-message-ability.php';

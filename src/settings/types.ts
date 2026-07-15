@@ -43,6 +43,7 @@ export type FormatInstructionKey =
 	| 'generate-story';
 
 export interface Settings {
+	enable_neutrality_pass: boolean;
 	thread_counts: ThreadCounts;
 	network_instructions: NetworkInstructions;
 	system_prompts: SystemPrompts;

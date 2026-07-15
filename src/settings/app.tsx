@@ -13,6 +13,18 @@ import type { FlatPromptKey, StoryFieldPrompts } from './types';
 
 const TEXT_DOMAIN = 'prc-social-builder';
 
+const EDITORIAL_PASS_FIELDS: SettingsFieldConfig[] = [
+	{
+		id: 'enable_neutrality_pass',
+		type: 'boolean',
+		label: __('Neutrality pass', TEXT_DOMAIN),
+		description: __(
+			'After humanization, rewrite generated copy for source-grounded editorial neutrality. Disable to skip this pass.',
+			TEXT_DOMAIN
+		),
+	},
+];
+
 const THREAD_COUNT_FIELDS: SettingsFieldConfig[] = [
 	{
 		id: 'thread_counts.twitter',
@@ -215,6 +227,15 @@ export default function SettingsApp() {
 				TEXT_DOMAIN
 			)}
 			sections={[
+				{
+					slug: 'editorial-passes',
+					title: __('Editorial Passes', TEXT_DOMAIN),
+					description: __(
+						'Control post-generation editorial rewriting applied to AI suggestions.',
+						TEXT_DOMAIN
+					),
+					fields: EDITORIAL_PASS_FIELDS,
+				},
 				{
 					slug: 'thread-counts',
 					title: __('Default Thread Counts', TEXT_DOMAIN),
