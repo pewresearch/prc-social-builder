@@ -151,7 +151,6 @@ export default function SocialPackagesContent() {
 				disabled={isCreating || !postId}
 				isBusy={isCreating}
 				style={{ width: '100%', justifyContent: 'center' }}
-				__next40pxDefaultSize
 			>
 				{isCreating
 					? __('Creating…', 'prc-social-builder')
