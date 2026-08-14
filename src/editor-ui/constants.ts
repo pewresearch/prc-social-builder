@@ -10,12 +10,12 @@ export interface PlatformConfig {
 	aspectRatio?: string;
 }
 
-export const THREAD_PLATFORMS: Record<string, PlatformConfig> = {
+export const SOCIAL_PLATFORMS: Record<string, PlatformConfig> = {
 	twitter: {
 		name: __('Twitter / X', 'prc-social-builder'),
 		key: 'twitter',
 		charLimit: 280,
-		supportsThreads: true,
+		supportsThreads: false,
 		mediaTypes: ['image', 'gif', 'video'] as const,
 		supportsLinkPreview: true,
 	},
@@ -31,7 +31,7 @@ export const THREAD_PLATFORMS: Record<string, PlatformConfig> = {
 		name: __('Threads', 'prc-social-builder'),
 		key: 'threads',
 		charLimit: 500,
-		supportsThreads: true,
+		supportsThreads: false,
 		mediaTypes: ['image', 'video'] as const,
 		supportsLinkPreview: false,
 	},
@@ -39,7 +39,7 @@ export const THREAD_PLATFORMS: Record<string, PlatformConfig> = {
 		name: __('Bluesky', 'prc-social-builder'),
 		key: 'bluesky',
 		charLimit: 300,
-		supportsThreads: true,
+		supportsThreads: false,
 		mediaTypes: ['image'] as const,
 		supportsLinkPreview: true,
 	},
@@ -94,7 +94,7 @@ export const STORY_PLATFORMS: Record<string, PlatformConfig> = {
 
 export function getCharLimit(platform: string): number {
 	return (
-		THREAD_PLATFORMS[platform]?.charLimit ??
+		SOCIAL_PLATFORMS[platform]?.charLimit ??
 		STORY_PLATFORMS[platform]?.charLimit ??
 		280
 	);

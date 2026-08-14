@@ -9,8 +9,8 @@ import {
 import { PanelBody, ComboboxControl, Notice, ToggleControl, CheckboxControl } from '@wordpress/components';
 import { useSelect } from '@wordpress/data';
 import { store as editorStore } from '@wordpress/editor';
-import { THREAD_PLATFORMS } from '../editor-ui/constants';
-import { ThreadInspectorAI } from './inspector-ai';
+import { SOCIAL_PLATFORMS } from '../editor-ui/constants';
+import { ContainerInspectorAI } from './inspector-ai';
 import { SelectReportChildren } from './include-reports';
 
 
@@ -27,6 +27,7 @@ interface EditProps {
 		includeReportChildren: boolean;
 		unselectedReportChildren: string;
 		aiAdditionalInstructions: string;
+		aiRequestedEdits: string;
 	};
 	setAttributes: (
 		attrs: Partial<{
@@ -35,6 +36,7 @@ interface EditProps {
 			includeReportChildren: boolean;
 			unselectedReportChildren: string;
 			aiAdditionalInstructions: string;
+			aiRequestedEdits: string;
 		}>
 	) => void;
 	clientId: string;
@@ -45,8 +47,8 @@ export default function Edit({
 	setAttributes,
 	clientId,
 }: EditProps) {
-	const { platform, sourcePostId, aiAdditionalInstructions, includeReportChildren, unselectedReportChildren } = attributes;
-	const platformConfig = THREAD_PLATFORMS[platform];
+	const { platform, sourcePostId, aiAdditionalInstructions, aiRequestedEdits, includeReportChildren, unselectedReportChildren } = attributes;
+	const platformConfig = SOCIAL_PLATFORMS[platform];
 
 	const innerBlockCount = useSelect(
 		(select) =>
@@ -79,14 +81,14 @@ export default function Edit({
 	}));
 
 	const blockProps = useBlockProps({
-		className: `prc-social-thread prc-social-thread--${platform}`,
+		className: `prc-social-container prc-social-container--${platform}`,
 	});
 
 	const innerBlocksProps = useInnerBlocksProps(
-		{ className: 'prc-social-thread__messages' },
+		{ className: 'prc-social-container__messages' },
 		{
 			template: [['prc-social/message', {}]],
-			templateLock: false,
+			templateLock: 'all',
 		}
 	);
 
@@ -137,22 +139,23 @@ export default function Edit({
 						</>
 					)}
 				</PanelBody>
-				<ThreadInspectorAI
+				<ContainerInspectorAI
 					platform={platform}
 					clientId={clientId}
 					sourcePostId={sourcePostId}
 					includeReportChildren={includeReportChildren}
 					unselectedReportChildren={unselectedReportChildren}
 					aiAdditionalInstructions={aiAdditionalInstructions}
+					aiRequestedEdits={aiRequestedEdits}
 					setAttributes={setAttributes}
 					innerBlockCount={innerBlockCount}
 				/>
 			</InspectorControls>
-			<div className="prc-social-thread__header">
-				<span className="prc-social-thread__platform-label">
+			<div className="prc-social-container__header">
+				<span className="prc-social-container__platform-label">
 					{platformConfig?.name ?? platform}
 				</span>
-				<span className="prc-social-thread__char-limit">
+				<span className="prc-social-container__char-limit">
 					{__('Char limit:', 'prc-social-builder')}{' '}
 					{platformConfig?.charLimit}
 				</span>

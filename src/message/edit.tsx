@@ -25,8 +25,7 @@ import { PanelBody, TextareaControl, Spinner } from '@wordpress/components';
 /**
  * Internal Dependencies
  */
-import { getCharLimit, THREAD_PLATFORMS } from '../editor-ui/constants';
-import { MessageInspectorAI } from './inspector-ai';
+import { getCharLimit, SOCIAL_PLATFORMS } from '../editor-ui/constants';
 
 const PREVIEW_COMPONENTS: Record<string, React.ComponentType<any>> = {
 	twitter: TwitterPreview,
@@ -80,7 +79,6 @@ export default function Edit({
 		mediaId,
 		mediaUrl,
 		linkUrl,
-		aiAdditionalInstructions,
 		numberCheck,
 	} = attributes;
 	const charLimit = getCharLimit(platform);
@@ -220,24 +218,6 @@ export default function Edit({
 	return (
 		<div {...blockProps}>
 			<InspectorControls>
-				<MessageInspectorAI
-					platform={platform}
-					postId={sourcePostId}
-					aiAdditionalInstructions={aiAdditionalInstructions}
-					setAttributes={setAttributes}
-					onApply={(option) => {
-						if (debounceRef.current) {
-							clearTimeout(debounceRef.current);
-						}
-						invalidatePendingNumberCheck();
-						lastCheckContentRef.current = option.content;
-						setAttributes({
-							content: option.content,
-							linkUrl: option.linkUrl ?? '',
-							numberCheck: option.numberCheck ?? null,
-						});
-					}}
-				/>
 				<PanelBody
 					title={__('Message', 'prc-social-builder')}
 					initialOpen
@@ -272,7 +252,7 @@ export default function Edit({
 					<MediaDropZoneField
 						attachmentId={mediaId || false}
 						allowedTypes={
-							THREAD_PLATFORMS[platform]?.mediaTypes?.filter(
+							SOCIAL_PLATFORMS[platform]?.mediaTypes?.filter(
 								(t): t is string => typeof t === 'string'
 							) ?? ['image']
 						}

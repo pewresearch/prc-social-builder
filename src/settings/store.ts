@@ -5,8 +5,9 @@ import type {
 	ApiResponse,
 	StoryFieldPrompts,
 	FormatInstructionKey,
-	SystemPrompts,
+	FlatPromptKey,
 	StoryFieldDefaults,
+	SystemPrompts,
 } from './types';
 
 export const STORE_NAME = 'prc/social-builder-settings';
@@ -19,13 +20,6 @@ const DEFAULT_STORY_FIELD_PROMPTS: StoryFieldPrompts = {
 
 const DEFAULT_SETTINGS: Settings = {
 	enable_neutrality_pass: true,
-	thread_counts: {
-		twitter: 4,
-		facebook: 1,
-		threads: 4,
-		bluesky: 4,
-		linkedin: 1,
-	},
 	network_instructions: {
 		twitter: '',
 		facebook: '',
@@ -37,8 +31,7 @@ const DEFAULT_SETTINGS: Settings = {
 		youtube: '',
 	},
 	system_prompts: {
-		'generate-thread': '',
-		'generate-message': '',
+		'generate-social-copy': '',
 		'generate-story': DEFAULT_STORY_FIELD_PROMPTS,
 	},
 };
@@ -46,12 +39,10 @@ const DEFAULT_SETTINGS: Settings = {
 const DEFAULT_STATE: SettingsStoreState = {
 	settings: DEFAULT_SETTINGS,
 	defaults: {
-		'generate-thread': '',
-		'generate-message': '',
+		'generate-social-copy': '',
 	},
 	formatInstructions: {
-		'generate-thread': '',
-		'generate-message': '',
+		'generate-social-copy': '',
 		'generate-story': '',
 	},
 	storyFieldDefaults: {
@@ -77,7 +68,7 @@ export const store = createSettingsStore<
 	extraSelectors: {
 		getDefaults(
 			state: SettingsStoreState
-		): Omit<SystemPrompts, 'generate-story'> {
+		): Pick<SystemPrompts, FlatPromptKey> {
 			return state.defaults;
 		},
 		getFormatInstructions(

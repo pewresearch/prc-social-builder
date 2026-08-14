@@ -12,13 +12,13 @@ import type { BlockVariation } from '@wordpress/blocks';
 /**
  * Internal Dependencies
  */
-import { THREAD_PLATFORMS } from '../editor-ui/constants';
+import { SOCIAL_PLATFORMS } from '../editor-ui/constants';
 
-const variations: BlockVariation[] = Object.entries(THREAD_PLATFORMS).map(
+const variations: BlockVariation[] = Object.entries(SOCIAL_PLATFORMS).map(
 	([key, config]) => ({
-		name: `thread-${key}`,
-		title: `${config.name} ${__('Thread', 'prc-social-builder')}`,
-		description: `${__('A social thread for', 'prc-social-builder')} ${config.name}.`,
+		name: `social-copy-${key}`,
+		title: `${config.name} ${__('Post', 'prc-social-builder')}`,
+		description: `${__('Social Copy for', 'prc-social-builder')} ${config.name}.`,
 		icon: () => <Icon icon={key} library="brands" />,
 		attributes: { platform: key },
 		isDefault: key === 'twitter',

@@ -41,7 +41,7 @@ class Social_Builder_AI_Feature extends Abstract_Feature {
 	protected function load_metadata(): array {
 		return array(
 			'label'       => __( 'Social Builder AI', 'prc-social-builder' ),
-			'description' => __( 'Generates threads, messages, and story concepts for Social Builder from post content.', 'prc-social-builder' ),
+			'description' => __( 'Generates copy, messages, and story concepts for Social Builder from post content.', 'prc-social-builder' ),
 			'category'    => Experiment_Category::EDITOR,
 		);
 	}
@@ -50,13 +50,13 @@ class Social_Builder_AI_Feature extends Abstract_Feature {
 	 * Register abilities and editor localization when the feature is enabled.
 	 */
 	public function register(): void {
-		$thread  = new Generate_Thread_Ability();
-		$message = new Generate_Message_Ability();
 		$story   = new Generate_Story_Ability();
+		$social_copy    = new Generate_Social_Copy_Ability();
+		$social_package = new Add_Social_Package_Ability();
 
-		add_action( 'wp_abilities_api_init', array( $thread, 'register_ability' ) );
-		add_action( 'wp_abilities_api_init', array( $message, 'register_ability' ) );
 		add_action( 'wp_abilities_api_init', array( $story, 'register_ability' ) );
+		add_action( 'wp_abilities_api_init', array( $social_copy, 'register_ability' ) );
+		add_action( 'wp_abilities_api_init', array( $social_package, 'register_ability' ) );
 
 		add_action( 'enqueue_block_editor_assets', array( $this, 'localize_ai_ability_names' ), 20 );
 	}
@@ -78,9 +78,8 @@ class Social_Builder_AI_Feature extends Abstract_Feature {
 			'prcSocialBuilderAI',
 			array(
 				'enabled'            => true,
-				'threadAbilityName'  => Generate_Thread_Ability::$ability_name,
-				'messageAbilityName' => Generate_Message_Ability::$ability_name,
 				'storyAbilityName'   => Generate_Story_Ability::$ability_name,
+				'socialCopyAbilityName' => Generate_Social_Copy_Ability::$ability_name
 			)
 		);
 	}

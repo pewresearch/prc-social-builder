@@ -15,6 +15,43 @@ const TEXT_DOMAIN = 'prc-social-builder';
 
 const EDITORIAL_PASS_FIELDS: SettingsFieldConfig[] = [
 	{
+		id: 'enable_summarization',
+		type: 'boolean',
+		label: __('Content Summarization', TEXT_DOMAIN),
+		description: __(
+			'Before generating content, condense the copy passed. The prompt used may be edited below. Disable to skip this step.',
+			TEXT_DOMAIN
+		),
+	},
+	{
+		id: 'system_prompts.summarization_prompt',
+		type: 'textarea',
+		label: __('Summarization Prompt', TEXT_DOMAIN),
+	},
+	{
+		id: 'enable_style_guide',
+		type: 'boolean',
+		label: __('Use Style Guide', TEXT_DOMAIN),
+		description: __(
+			'When generating content, add the following style guide to the prompt with the instructions "Adhere to the style guide for voice, tone, and style:". Disable to skip adding.',
+			TEXT_DOMAIN
+		),
+	},
+	{
+		id: 'system_prompts.style_guide_prompt',
+		type: 'textarea',
+		label: __('Style Guide', TEXT_DOMAIN),
+	},
+	{
+		id: 'enable_humanizer',
+		type: 'boolean',
+		label: __('Humanizer pass', TEXT_DOMAIN),
+		description: __(
+			'Rewrite generated copy to sound more human. Disable to skip this pass.',
+			TEXT_DOMAIN
+		),
+	},
+	{
 		id: 'enable_neutrality_pass',
 		type: 'boolean',
 		label: __('Neutrality pass', TEXT_DOMAIN),
@@ -22,50 +59,6 @@ const EDITORIAL_PASS_FIELDS: SettingsFieldConfig[] = [
 			'After humanization, rewrite generated copy for source-grounded editorial neutrality. Disable to skip this pass.',
 			TEXT_DOMAIN
 		),
-	},
-];
-
-const THREAD_COUNT_FIELDS: SettingsFieldConfig[] = [
-	{
-		id: 'thread_counts.twitter',
-		type: 'integer',
-		label: __('Twitter / X', TEXT_DOMAIN),
-		min: 2,
-		max: 10,
-	},
-	{
-		id: 'thread_counts.facebook',
-		type: 'integer',
-		label: __('Facebook', TEXT_DOMAIN),
-		description: __(
-			'This platform does not support threaded posts. Always generates 1 post.',
-			TEXT_DOMAIN
-		),
-		isDisabled: () => true,
-	},
-	{
-		id: 'thread_counts.threads',
-		type: 'integer',
-		label: __('Threads', TEXT_DOMAIN),
-		min: 2,
-		max: 10,
-	},
-	{
-		id: 'thread_counts.bluesky',
-		type: 'integer',
-		label: __('Bluesky', TEXT_DOMAIN),
-		min: 2,
-		max: 10,
-	},
-	{
-		id: 'thread_counts.linkedin',
-		type: 'integer',
-		label: __('LinkedIn', TEXT_DOMAIN),
-		description: __(
-			'This platform does not support threaded posts. Always generates 1 post.',
-			TEXT_DOMAIN
-		),
-		isDisabled: () => true,
 	},
 ];
 
@@ -117,17 +110,12 @@ const NETWORK_INSTRUCTION_FIELDS: SettingsFieldConfig[] = [
 ];
 
 const SYSTEM_PROMPT_LABELS: Record<FlatPromptKey, string> = {
-	'generate-thread': __('Generate Thread', TEXT_DOMAIN),
-	'generate-message': __('Generate Message', TEXT_DOMAIN),
+	'generate-social-copy': __('Generate Social Copy', TEXT_DOMAIN),
 };
 
 const SYSTEM_PROMPT_HELP: Record<FlatPromptKey, string> = {
-	'generate-thread': __(
-		'Available placeholders: {{platform}}, {{max_messages}}, {{char_limit}}',
-		TEXT_DOMAIN
-	),
-	'generate-message': __(
-		'Available placeholders: {{platform}}, {{max_length}}, {{option_count}}',
+	'generate-social-copy': __(
+		'Available placeholders: {{platform}}, {{char_limit}}',
 		TEXT_DOMAIN
 	),
 };
@@ -210,10 +198,30 @@ export default function SettingsApp() {
 			})),
 		[storyFieldDefaults]
 	);
+	const editorialPassFields = useMemo(
+		(): SettingsFieldConfig[] =>
+			EDITORIAL_PASS_FIELDS.map((field) => {
+				const d = defaults as Record<string, string>;
+				if (field.id === 'system_prompts.summarization_prompt') {
+					return {
+						...field,
+						placeholder: d.summarization_prompt || undefined,
+					};
+				}
+				if (field.id === 'system_prompts.style_guide_prompt') {
+					return {
+						...field,
+						placeholder: d.style_guide_prompt || undefined,
+					};
+				}
+				return field;
+			}),
+		[defaults]
+	);
 
 	return (
 		<SettingsPage
-			title={__('Social Package Builder AI Settings', TEXT_DOMAIN)}
+			title={__('Social Package Builder Settings', TEXT_DOMAIN)}
 			description={__(
 				'Configure AI generation defaults, per-network instructions, and system prompt templates.',
 				TEXT_DOMAIN
@@ -234,16 +242,7 @@ export default function SettingsApp() {
 						'Control post-generation editorial rewriting applied to AI suggestions.',
 						TEXT_DOMAIN
 					),
-					fields: EDITORIAL_PASS_FIELDS,
-				},
-				{
-					slug: 'thread-counts',
-					title: __('Default Thread Counts', TEXT_DOMAIN),
-					description: __(
-						'Configure how many messages are generated per platform when creating threads.',
-						TEXT_DOMAIN
-					),
-					fields: THREAD_COUNT_FIELDS,
+					fields: editorialPassFields,
 				},
 				{
 					slug: 'network-instructions',
@@ -258,7 +257,7 @@ export default function SettingsApp() {
 					slug: 'system-prompts',
 					title: __('System Prompt Templates', TEXT_DOMAIN),
 					description: __(
-						'Override the default system prompts for thread and message generation. Leave blank to use the default.',
+						'Override the default system prompt for social copy generation. Leave blank to use the default.',
 						TEXT_DOMAIN
 					),
 					fields: systemPromptFields,

@@ -3,8 +3,7 @@
  * Settings management for Social Builder AI.
  *
  * Registers the admin settings page, REST endpoints, and option defaults
- * for configuring default thread counts, per-network AI instructions,
- * and system prompt overrides.
+ * for configuring per-network AI instructions and system prompt overrides.
  *
  * @package PRC\Platform\Social_Builder
  */
@@ -12,6 +11,8 @@
 declare( strict_types=1 );
 
 namespace PRC\Platform\Social_Builder;
+
+use PRC\Platform\Settings_Page_Boot;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -35,13 +36,9 @@ class Settings {
 	 */
 	private static array $defaults = array(
 		'enable_neutrality_pass' => true,
-		'thread_counts'          => array(
-			'twitter'  => 4,
-			'facebook' => 1,
-			'threads'  => 4,
-			'bluesky'  => 4,
-			'linkedin' => 1,
-		),
+		'enable_humanizer'       => true,
+		'enable_summarization'   => true,
+		'enable_style_guide'     => true,
 		'network_instructions'   => array(
 			'twitter'   => '',
 			'facebook'  => '',
@@ -53,9 +50,10 @@ class Settings {
 			'youtube'   => '',
 		),
 		'system_prompts'         => array(
-			'generate-thread'  => '',
-			'generate-message' => '',
-			'generate-story'   => array(
+			'generate-social-copy' => '',
+			'summarization_prompt' => '',
+			'style_guide_prompt'   => '',
+			'generate-story'       => array(
 				'caption'            => '',
 				'overlay_text'       => '',
 				'media_descriptions' => '',
@@ -93,13 +91,10 @@ class Settings {
 		$merged_prompts['generate-story'] = array_merge( $default_story, $stored_story );
 
 		return array(
-			'enable_neutrality_pass' => array_key_exists( 'enable_neutrality_pass', $stored )
-				? (bool) filter_var( $stored['enable_neutrality_pass'], FILTER_VALIDATE_BOOLEAN )
-				: (bool) self::$defaults['enable_neutrality_pass'],
-			'thread_counts'          => array_merge(
-				self::$defaults['thread_counts'],
-				is_array( $stored['thread_counts'] ?? null ) ? $stored['thread_counts'] : array()
-			),
+			'enable_neutrality_pass' => self::get_boolean_value( 'enable_neutrality_pass', $stored ),
+			'enable_humanizer'       => self::get_boolean_value( 'enable_humanizer', $stored ),
+			'enable_summarization'   => self::get_boolean_value( 'enable_summarization', $stored ),
+			'enable_style_guide'     => self::get_boolean_value( 'enable_style_guide', $stored ),
 			'network_instructions'   => array_merge(
 				self::$defaults['network_instructions'],
 				is_array( $stored['network_instructions'] ?? null ) ? $stored['network_instructions'] : array()
@@ -114,8 +109,8 @@ class Settings {
 	public function register_admin_page(): void {
 		add_submenu_page(
 			'edit.php?post_type=social-package',
-			__( 'Social Builder AI Settings', 'prc-social-builder' ),
-			__( 'AI Settings', 'prc-social-builder' ),
+			__( 'Social Package Builder Settings', 'prc-social-builder' ),
+			__( 'Settings', 'prc-social-builder' ),
 			'manage_options',
 			self::ADMIN_PAGE_SLUG,
 			array( $this, 'render_admin_page' )
@@ -123,7 +118,7 @@ class Settings {
 	}
 
 	public function render_admin_page(): void {
-		echo '<div class="wrap"><div id="prc-social-builder-settings-admin"></div></div>';
+		Settings_Page_Boot::render( 'prc-social-builder-settings-admin' );
 	}
 
 	/**
@@ -163,6 +158,12 @@ class Settings {
 				$asset['version']
 			);
 		}
+
+		Settings_Page_Boot::enqueue(
+			$handle,
+			(string) $asset['version'],
+			'prc-social-builder-settings-admin'
+		);
 	}
 
 	/**
@@ -228,18 +229,6 @@ class Settings {
 	 * @return array<string, mixed>
 	 */
 	private function sanitize_settings( array $input ): array {
-		$thread_counts = array();
-		if ( isset( $input['thread_counts'] ) && is_array( $input['thread_counts'] ) ) {
-			foreach ( self::$defaults['thread_counts'] as $platform => $default ) {
-				$raw = isset( $input['thread_counts'][ $platform ] ) ? (int) $input['thread_counts'][ $platform ] : $default;
-				// Facebook and LinkedIn only support single posts (no threads).
-				$thread_counts[ $platform ] = in_array( $platform, array( 'facebook', 'linkedin' ), true )
-					? 1
-					: max( 2, min( 10, $raw ) );
-			}
-		} else {
-			$thread_counts = self::$defaults['thread_counts'];
-		}
 
 		$network_instructions = array();
 		if ( isset( $input['network_instructions'] ) && is_array( $input['network_instructions'] ) ) {
@@ -254,72 +243,77 @@ class Settings {
 
 		$system_prompts = array();
 		if ( isset( $input['system_prompts'] ) && is_array( $input['system_prompts'] ) ) {
-			// thread and message are flat strings.
-			foreach ( array( 'generate-thread', 'generate-message' ) as $key ) {
-				$value                  = sanitize_textarea_field(
-					(string) ( $input['system_prompts'][ $key ] ?? '' )
-				);
-				$system_prompts[ $key ] = '' === trim( $value ) ? '' : $value;
-			}
+			$system_prompts['generate-social-copy'] = self::get_textarea_value( 'generate-social-copy', $input['system_prompts']);
+			$system_prompts['summarization_prompt'] = self::get_textarea_value( 'summarization_prompt', $input['system_prompts']);
+			$system_prompts['style_guide_prompt']   = self::get_textarea_value( 'style_guide_prompt', $input['system_prompts']);
+
 			// story is a sub-array of per-field instruction strings.
 			$raw_story                        = isset( $input['system_prompts']['generate-story'] ) && is_array( $input['system_prompts']['generate-story'] )
 				? $input['system_prompts']['generate-story']
 				: array();
 			$system_prompts['generate-story'] = array(
-				'caption'            => '' === trim( sanitize_textarea_field( (string) ( $raw_story['caption'] ?? '' ) ) )
-					? ''
-					: sanitize_textarea_field( (string) ( $raw_story['caption'] ?? '' ) ),
-				'overlay_text'       => '' === trim( sanitize_textarea_field( (string) ( $raw_story['overlay_text'] ?? '' ) ) )
-					? ''
-					: sanitize_textarea_field( (string) ( $raw_story['overlay_text'] ?? '' ) ),
-				'media_descriptions' => '' === trim( sanitize_textarea_field( (string) ( $raw_story['media_descriptions'] ?? '' ) ) )
-					? ''
-					: sanitize_textarea_field( (string) ( $raw_story['media_descriptions'] ?? '' ) ),
+				'caption'            => self::get_textarea_value( 'caption', $raw_story),
+				'overlay_text'       => self::get_textarea_value( 'overlay_text', $raw_story),
+				'media_descriptions' => self::get_textarea_value( 'media_descriptions', $raw_story)
 			);
 		} else {
 			$system_prompts = self::$defaults['system_prompts'];
 		}
 
-		$enable_neutrality_pass = array_key_exists( 'enable_neutrality_pass', $input )
-			? (bool) filter_var( $input['enable_neutrality_pass'], FILTER_VALIDATE_BOOLEAN )
-			: (bool) self::$defaults['enable_neutrality_pass'];
+		$enable_neutrality_pass = self::get_boolean_value( 'enable_neutrality_pass', $input );
+		$enable_humanizer       = self::get_boolean_value( 'enable_humanizer', $input );
+		$enable_summarization   = self::get_boolean_value( 'enable_summarization', $input );
+		$enable_style_guide     = self::get_boolean_value( 'enable_style_guide', $input );
 
 		return array(
 			'enable_neutrality_pass' => $enable_neutrality_pass,
-			'thread_counts'          => $thread_counts,
+			'enable_humanizer'       => $enable_humanizer,
+			'enable_summarization'   => $enable_summarization,
+			'enable_style_guide'     => $enable_style_guide,
 			'network_instructions'   => $network_instructions,
 			'system_prompts'         => $system_prompts,
 		);
 	}
 
+	private static function get_boolean_value(string $key, array $input ) {
+		return array_key_exists( $key, $input )
+			? (bool) filter_var( $input[$key], FILTER_VALIDATE_BOOLEAN )
+			: (bool) self::$defaults[$key];
+	}
+
+	private static function get_textarea_value( string $key, array $input ){
+		$value = sanitize_textarea_field( (string) ( $input[$key] ?? '' ) );
+		return '' === trim( $value ) ? '' : $value;
+	}
+
 	/**
-	 * Returns the default system prompt templates for thread and message abilities.
+	 * Returns the default system prompt templates for flat-string abilities.
 	 *
-	 * Story no longer has a single template — its per-field defaults are returned
-	 * separately via get_story_field_defaults().
+	 * Story per-field defaults are returned separately via get_story_field_defaults().
 	 *
 	 * @return array<string, string>
 	 */
 	private function get_default_templates(): array {
 		$ai_dir = plugin_dir_path( __DIR__ ) . 'includes/ai/';
 
-		$templates = array();
-
-		if ( ! class_exists( Generate_Thread_Ability::class ) ) {
-			require_once $ai_dir . 'class-generate-thread-ability.php';
-		}
-		if ( ! class_exists( Generate_Message_Ability::class ) ) {
-			require_once $ai_dir . 'class-generate-message-ability.php';
+		if ( ! class_exists( Generate_Social_Copy_Ability::class ) ) {
+			require_once $ai_dir . 'class-generate-social-copy-ability.php';
 		}
 
-		if ( class_exists( Generate_Thread_Ability::class ) ) {
-			$templates['generate-thread'] = Generate_Thread_Ability::get_default_system_prompt_template();
-		}
-		if ( class_exists( Generate_Message_Ability::class ) ) {
-			$templates['generate-message'] = Generate_Message_Ability::get_default_system_prompt_template();
+		if ( ! class_exists( Generate_Social_Copy_Ability::class ) ) {
+			return array(
+				'generate-social-copy' => '',
+				'summarization_prompt' => '',
+				'style_guide_prompt'   => '',
+			);
 		}
 
-		return $templates;
+		return array(
+			'generate-social-copy' => Generate_Social_Copy_Ability::get_default_system_prompt_template(),
+			'summarization_prompt' => Generate_Social_Copy_Ability::get_summarizer_instructions(),
+			'style_guide_prompt'   => Generate_Social_Copy_Ability::get_social_style_guide(),
+
+		);
 	}
 
 	/**
@@ -332,24 +326,24 @@ class Settings {
 	private function get_output_format_instructions(): array {
 		$ai_dir = plugin_dir_path( __DIR__ ) . 'includes/ai/';
 
-		if ( ! class_exists( Generate_Thread_Ability::class ) ) {
-			require_once $ai_dir . 'class-generate-thread-ability.php';
-		}
-		if ( ! class_exists( Generate_Message_Ability::class ) ) {
-			require_once $ai_dir . 'class-generate-message-ability.php';
+		if ( ! class_exists( Generate_Social_Copy_Ability::class ) ) {
+			require_once $ai_dir . 'class-generate-social-copy-ability.php';
 		}
 		if ( ! class_exists( Generate_Story_Ability::class ) ) {
 			require_once $ai_dir . 'class-generate-story-ability.php';
 		}
 
 		return array(
-			'generate-thread'  => class_exists( Generate_Thread_Ability::class )
-				? Generate_Thread_Ability::get_output_format_instruction()
+			'generate-social-copy' => class_exists( Generate_Social_Copy_Ability::class )
+				? Generate_Social_Copy_Ability::get_output_format_instruction()
 				: '',
-			'generate-message' => class_exists( Generate_Message_Ability::class )
-				? Generate_Message_Ability::get_output_format_instruction()
+			'summarization_prompt' => class_exists( Generate_Social_Copy_Ability::class )
+				? Generate_Social_Copy_Ability::get_summarizer_instructions()
 				: '',
-			'generate-story'   => class_exists( Generate_Story_Ability::class )
+			'style_guide_prompt'   => class_exists( Generate_Social_Copy_Ability::class ) 
+				? Generate_Social_Copy_Ability::get_social_style_guide()
+				: '',
+			'generate-story'       => class_exists( Generate_Story_Ability::class )
 				? Generate_Story_Ability::get_output_format_instruction()
 				: '',
 		);

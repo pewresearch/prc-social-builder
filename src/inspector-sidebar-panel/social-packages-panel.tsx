@@ -1,15 +1,17 @@
-import { useState } from '@wordpress/element';
+import { useEffect, useState, useCallback } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { store as editorStore } from '@wordpress/editor';
-import { useDispatch, useSelect } from '@wordpress/data';
-import { useEntityRecords, store as coreDataStore } from '@wordpress/core-data';
+import { useSelect } from '@wordpress/data';
+import { useEntityRecords } from '@wordpress/core-data';
 import {
 	Button,
 	Notice,
 	Spinner,
+	Modal,
 	__experimentalVStack as VStack,
 } from '@wordpress/components';
 import { addQueryArgs } from '@wordpress/url';
+import { useAISuggest } from '@prc/components';
 
 interface SocialPackageRecord {
 	id: number;
@@ -18,82 +20,128 @@ interface SocialPackageRecord {
 }
 
 export default function SocialPackagesContent() {
-	const postId = useSelect(
-		(select) => select(editorStore).getCurrentPostId(),
-		[]
-	);
-
-	const { saveEntityRecord } = useDispatch(coreDataStore);
-	const [isCreating, setIsCreating] = useState(false);
+	const postInfo = useSelect((select) => {
+		const editInfo = select(editorStore);
+		return {
+			postId: editInfo.getCurrentPostId(),
+			title: editInfo.getEditedPostAttribute('title') || '',
+		};
+	}, []);
 	const [error, setError] = useState<string | null>(null);
-
+	const [refreshKey, setRefreshKey] = useState(postInfo.postId);
+	const [isOpen, setOpen] = useState(false);
+	const [isPackageLoading, setIsPackageLoading] = useState(false);
+	const openModal = () => setOpen(true);
+	const closeModal = () => setOpen(false);
 	const { records: packages, isResolving } = useEntityRecords(
 		'postType',
 		'social-package',
-		postId
+		postInfo.postId
 			? {
-					associated_post_id: postId,
+					associated_post_id: postInfo.postId,
 					per_page: 10,
 					status: ['draft', 'publish'],
+					_refresh: refreshKey,
 				}
 			: {}
 	);
+	const {
+		isLoading,
+		error: socialError,
+		result,
+		fetch,
+		reset,
+		dismissError,
+	} = useAISuggest<{ newPostId: number }>({
+		abilityName: 'prc-social-builder/add-social-package',
+	});
 
-	const handleCreate = async () => {
-		if (!postId || isCreating) {
-			return;
+	// Get permissions
+	useEffect(() => {
+		if (
+			typeof Notification !== 'undefined' &&
+			Notification.permission === 'default'
+		) {
+			Notification.requestPermission();
 		}
+	}, []);
 
-		setIsCreating(true);
-		setError(null);
+	// Update error to display social error
+	useEffect(() => {
+		if (socialError) {
+			setError(socialError);
+			setIsPackageLoading(false);
+		}
+		if (error) {
+			sendAlert(false);
+			setIsPackageLoading(false);
+		}
+	}, [error, socialError, reset]);
 
-		try {
-			const newPackage = (await saveEntityRecord(
-				'postType',
-				'social-package',
-				{
-					title: `Social Package for Post #${postId}`,
-					status: 'draft',
-					meta: { _prc_associated_posts: [postId] },
-				},
-				{ throwOnError: true }
-			)) as { id?: number };
+	// If a new social post has been created, open the post,
+	// 	refresh the list of posts and reset our fetch function
+	useEffect(() => {
+		if (result?.newPostId) {
+			setRefreshKey(result.newPostId);
+			setIsPackageLoading(false);
+			sendAlert(true);
+			reset();
+		}
+	}, [result, reset]);
+	const packageTitle =
+		'' !== postInfo.title.trim()
+			? postInfo.title
+			: `Post #${postInfo.postId}`;
 
-			if (newPackage?.id) {
-				window.open(
-					addQueryArgs('post.php', {
-						post: newPackage.id,
-						action: 'edit',
-					}),
-					'_blank'
-				);
-				return;
+	const sendAlert = async (success: boolean) => {
+		const text = success
+			? `SUCCESS: Created "Social Package for ${packageTitle}"`
+			: `ERROR: Failed to create a social package for "${packageTitle}"`;
+		if (!document.hasFocus()) {
+			if (
+				typeof Notification !== 'undefined' &&
+				Notification.permission === 'granted'
+			) {
+				const img = '/wp-content/images/symbol-alt.svg';
+				const notif = new Notification('Social Package Builder', {
+					body: text,
+					icon: img,
+				});
+				notif.onclick = function () {
+					window.parent.parent.focus();
+				};
+			} else {
+				alert(text);
 			}
-
-			setError(
-				__(
-					'Could not create social package. Please try again.',
-					'prc-social-builder'
-				)
-			);
-		} catch (createError) {
-			const fallback = __(
-				'Could not create social package. Please try again.',
-				'prc-social-builder'
-			);
-			const message =
-				createError &&
-				typeof createError === 'object' &&
-				'message' in createError &&
-				typeof createError.message === 'string'
-					? createError.message
-					: createError instanceof Error
-						? createError.message
-						: fallback;
-			setError(message);
-		} finally {
-			setIsCreating(false);
 		}
+	};
+
+	const handleOpenPackage = () => {
+		window.open(
+			addQueryArgs('post.php', {
+				post: refreshKey,
+				action: 'edit',
+			}),
+			'_blank'
+		);
+	};
+
+	const handleCreate = () => {
+		setError(null);
+		openModal();
+		setIsPackageLoading(true);
+		fetch({
+			isDefaultList: true,
+			blankTemplate: false,
+			associatedPostId: postInfo.postId,
+			title: `Social Package for ${packageTitle}`,
+			content: [
+				{
+					contentType: 'wp-post',
+					postId: postInfo.postId,
+				},
+			],
+		});
 	};
 
 	return (
@@ -136,26 +184,77 @@ export default function SocialPackagesContent() {
 					)}
 				</p>
 			) : null}
-			{error && (
-				<Notice
-					status="error"
-					isDismissible
-					onRemove={() => setError(null)}
-				>
-					{error}
-				</Notice>
-			)}
 			<Button
 				variant="secondary"
 				onClick={handleCreate}
-				disabled={isCreating || !postId}
-				isBusy={isCreating}
+				disabled={isLoading || !postInfo.postId}
 				style={{ width: '100%', justifyContent: 'center' }}
 			>
-				{isCreating
+				{isLoading
 					? __('Creating…', 'prc-social-builder')
 					: __('+ Create Social Package', 'prc-social-builder')}
 			</Button>
+			{isOpen && (
+				<Modal
+					title="Social Package Builder"
+					onRequestClose={closeModal}
+					isDismissible={false}
+					shouldCloseOnClickOutside={false}
+					shouldCloseOnEsc={false}
+					style={{ maxWidth: '400px' }}
+				>
+					{isLoading && (
+						<p>
+							{' '}
+							<Spinner /> Creating Social Package...{' '}
+						</p>
+					)}
+					{error && (
+						<Notice status="error" isDismissible={false}>
+							{error}
+						</Notice>
+					)}
+					{!error && !isLoading && !socialError && (
+						<p>
+							Created{' '}
+							<strong>Social Package for "{packageTitle}"</strong>
+						</p>
+					)}
+
+					<Button
+						variant="primary"
+						style={{
+							width: '48%',
+							justifyContent: 'center',
+							margin: '0 2% 0 0',
+						}}
+						disabled={isPackageLoading}
+						isBusy={isPackageLoading}
+						onClick={error ? handleCreate : handleOpenPackage}
+					>
+						{isPackageLoading
+							? isLoading
+								? __('Creating…', 'prc-social-builder')
+								: __('Getting Link...', 'prc-social-builder')
+							: error
+								? __('Retry', 'prc-social-builder')
+								: __('Open Package', 'prc-social-builder')}
+					</Button>
+					<Button
+						variant="secondary"
+						style={{
+							width: '48%',
+							justifyContent: 'center',
+							margin: '0 0 0 2%',
+						}}
+						disabled={isLoading}
+						isBusy={isLoading}
+						onClick={closeModal}
+					>
+						Close
+					</Button>
+				</Modal>
+			)}
 		</VStack>
 	);
 }

@@ -3,12 +3,12 @@
   "apiVersion": 3,
   "name": "prc-social/message",
   "title": "Social Message",
-  "description": "A single social media message within a thread.",
+  "description": "A single social media message.",
   "category": "media",
   "icon": "format-status",
   "textdomain": "prc-social-builder",
   "parent": [
-    "prc-social/thread"
+    "prc-social/container"
   ],
   "usesContext": [
     "prc-social/platform",

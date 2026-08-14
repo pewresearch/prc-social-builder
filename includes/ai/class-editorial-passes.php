@@ -52,12 +52,17 @@ class Editorial_Passes {
 		}
 
 		$neutrality_enabled = self::is_neutrality_enabled();
-		$humanizer          = wp_get_ability( self::HUMANIZER_ABILITY );
-		if ( ! $humanizer ) {
-			return new WP_Error(
-				'editorial_ability_unavailable',
-				__( 'Required editorial abilities are unavailable.', 'prc-social-builder' )
-			);
+		$humanity_enabled   = self::use_humanizer();
+
+		$humanizer = null; 
+		if ( $humanity_enabled ) {
+			$humanizer          = wp_get_ability( self::HUMANIZER_ABILITY );
+			if ( ! $humanizer ) {
+				return new WP_Error(
+					'editorial_ability_unavailable',
+					__( 'Required editorial abilities are unavailable.', 'prc-social-builder' )
+				);
+			}
 		}
 
 		$neutrality = null;
@@ -71,7 +76,7 @@ class Editorial_Passes {
 			}
 		}
 
-		$humanized = $humanizer->execute( array( 'items' => $items ) );
+		$humanized = ( $humanity_enabled ) ? $humanizer->execute( array( 'items' => $items ) ) : array( 'items' => $items );
 		if ( is_wp_error( $humanized ) ) {
 			return self::wrap_ability_error(
 				'humanizer_failed',
@@ -128,6 +133,23 @@ class Editorial_Passes {
 		$settings = Settings::get_settings();
 		return (bool) ( $settings['enable_neutrality_pass'] ?? true );
 	}
+
+	/**
+	 * Whether the humanizer should run.
+	 *
+	 * Defaults to enabled when settings are unavailable so existing behavior is preserved.
+	 *
+	 * @return bool
+	 */
+	private static function use_humanizer(): bool {
+		if ( ! class_exists( Settings::class ) ) {
+			return true;
+		}
+
+		$settings = Settings::get_settings();
+		return (bool) ( $settings['enable_humanizer'] ?? true );
+	}
+	
 
 	/**
 	 * Preserve the underlying ability error for the editor console / logs.

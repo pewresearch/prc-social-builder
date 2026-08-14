@@ -94,7 +94,7 @@ class Hootsuite {
 		$errors = array();
 
 		foreach ( $blocks as $block ) {
-			if ( 'prc-social/thread' === $block['blockName'] ) {
+			if ( 'prc-social/container' === $block['blockName'] ) {
 				$platform = $block['attrs']['platform'] ?? 'twitter';
 				$inner_blocks = $block['innerBlocks'] ?? array();
 				foreach ( $inner_blocks as $inner ) {

@@ -105,6 +105,21 @@ Do not use markdown fences or extra prose.';
 							'type'        => 'string',
 							'description' => 'Optional extra guidance for tone, focus, or style.',
 						),
+						'previousOutput'         => array(
+							'type'                 => 'object',
+							'description'          => 'Optional previous generation to revise when regenerating.',
+							'properties'           => array(
+								'caption'     => array(
+									'type'        => 'string',
+									'description' => 'Previous story caption.',
+								),
+								'overlayText' => array(
+									'type'        => 'string',
+									'description' => 'Previous overlay text.',
+								),
+							),
+							'additionalProperties' => false,
+						),
 						'site_id'                => \PRC\Platform\AI\Utils\site_id_input_schema_property(),
 					),
 					'required'             => array( 'postId', 'platform' ),
@@ -231,9 +246,10 @@ Do not use markdown fences or extra prose.';
 		$content = wp_strip_all_tags( (string) $post->post_content, true );
 		$content = mb_substr( $content, 0, 4000 );
 
-		$additional = isset( $input['additionalInstructions'] ) ? sanitize_text_field( (string) $input['additionalInstructions'] ) : '';
-		$guidelines = $this->get_content_guidelines( $post_id );
-		$system     = $this->build_system_instruction( $platform, $id_list, $guidelines, $additional );
+		$additional      = isset( $input['additionalInstructions'] ) ? sanitize_textarea_field( (string) $input['additionalInstructions'] ) : '';
+		$previous_output = $this->extract_previous_output( $input );
+		$guidelines      = $this->get_content_guidelines( $post_id );
+		$system          = $this->build_system_instruction( $platform, $id_list, $guidelines, $additional, $previous_output );
 
 		$prompt = wp_sprintf(
 			"%s\n\nPost Title: %s\n\nPost Content:\n%s\n\nRespond with ONLY valid JSON: {\"caption\":\"...\",\"overlayText\":\"...\",\"suggestedMediaIds\":[...ids from list only...],\"suggestedMediaDescriptions\":[\"...\"]}. Arrays must align in length when IDs are used.",
@@ -313,7 +329,38 @@ Do not use markdown fences or extra prose.';
 		return $data;
 	}
 
-	private function build_system_instruction( string $platform, string $available_ids, string $guidelines, string $additional = '' ): string {
+	/**
+	 * Extract and sanitize previousOutput from ability input.
+	 *
+	 * @param array<string, mixed> $input Ability input.
+	 * @return array{caption: string, overlayText: string}|null
+	 */
+	private function extract_previous_output( array $input ): ?array {
+		if ( ! isset( $input['previousOutput'] ) || ! is_array( $input['previousOutput'] ) ) {
+			return null;
+		}
+
+		$caption      = isset( $input['previousOutput']['caption'] )
+			? sanitize_textarea_field( (string) $input['previousOutput']['caption'] )
+			: '';
+		$overlay_text = isset( $input['previousOutput']['overlayText'] )
+			? sanitize_textarea_field( (string) $input['previousOutput']['overlayText'] )
+			: '';
+
+		if ( '' === $caption && '' === $overlay_text ) {
+			return null;
+		}
+
+		return array(
+			'caption'     => $caption,
+			'overlayText' => $overlay_text,
+		);
+	}
+
+	/**
+	 * @param array{caption: string, overlayText: string}|null $previous_output Previous generation to revise.
+	 */
+	private function build_system_instruction( string $platform, string $available_ids, string $guidelines, string $additional = '', ?array $previous_output = null ): string {
 		// Resolve per-field overrides from settings sub-array.
 		$caption_instruction    = self::get_default_caption_instruction();
 		$overlay_instruction    = self::get_default_overlay_instruction();
@@ -361,6 +408,13 @@ Do not use markdown fences or extra prose.';
 
 		if ( '' !== $additional ) {
 			$text .= "\n\nADDITIONAL INSTRUCTIONS:\n\n" . $additional;
+		}
+
+		if ( null !== $previous_output ) {
+			$text .= "\n\nPrevious generation to revise:";
+			$text .= "\ncaption: " . $previous_output['caption'];
+			$text .= "\noverlayText: " . $previous_output['overlayText'];
+			$text .= "\n\nRevise that previous output using the editor's additional instructions. Keep what still works unless the instructions say otherwise. Return a new result in the required JSON format.";
 		}
 
 		$text .= "\n\n" . self::get_output_format_instruction();

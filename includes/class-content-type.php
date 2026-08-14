@@ -100,11 +100,11 @@ class Content_Type {
 			'show_in_menu'       => true,
 			'show_in_rest'       => true,
 			'menu_icon'          => 'dashicons-share',
-			'supports'           => array( 'title', 'editor', 'author', 'revisions', 'custom-fields' ),
+			'supports'           => array( 'title', 'editor', 'author', 'revisions', 'custom-fields', 'prc-publish-workflows' ),
 			'has_archive'        => false,
 			'rewrite'            => false,
 			'template'           => array(
-				array( 'prc-social/thread', array( 'platform' => 'twitter' ) ),
+				array( 'prc-social/container', array( 'platform' => 'twitter' ) ),
 			),
 			'template_lock'      => false,
 		);
@@ -324,7 +324,7 @@ class Content_Type {
 		// Restrict social-package CPT to only use prc-social/* blocks.
 		if ( $editor_context->post->post_type === self::$post_type ) {
 			$social_allowed_blocks = array(
-				'prc-social/thread',
+				'prc-social/container',
 				'prc-social/message',
 				'prc-social/story',
 				'tabor/markdown-comment',

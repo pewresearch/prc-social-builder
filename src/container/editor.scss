@@ -1,0 +1,29 @@
+.prc-social-container__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding-bottom: 12px;
+	margin-bottom: 12px;
+	border-bottom: 1px solid #e0e0e0;
+}
+
+.prc-social-container__platform-label {
+	font-weight: 600;
+	font-size: 14px;
+}
+
+.prc-social-container__char-limit {
+	font-size: 12px;
+	color: #757575;
+}
+
+.prc-ai-suggestions-list {
+	margin-bottom: 12px;
+	.components-checkbox-control__input-container {
+		display: none;
+	}
+}
+
+.prc-ai-modal__footer > * {
+    margin-bottom: 12px;
+}

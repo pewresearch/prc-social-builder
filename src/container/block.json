@@ -1,8 +1,8 @@
 {
 	"$schema": "https://schemas.wp.org/trunk/block.json",
 	"apiVersion": 3,
-	"name": "prc-social/thread",
-	"title": "Social Thread",
+	"name": "prc-social/container",
+	"title": "Social Container",
 	"description": "A container for social media messages on a single platform.",
 	"category": "media",
 	"icon": "share-alt",
@@ -26,6 +26,10 @@
 			"default": ""
 		},
 		"aiAdditionalInstructions": {
+			"type": "string",
+			"default": ""
+		},
+		"aiRequestedEdits": {
 			"type": "string",
 			"default": ""
 		}

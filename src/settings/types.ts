@@ -1,11 +1,3 @@
-export interface ThreadCounts {
-	twitter: number;
-	facebook: number;
-	threads: number;
-	bluesky: number;
-	linkedin: number;
-}
-
 export interface NetworkInstructions {
 	twitter: string;
 	facebook: string;
@@ -23,9 +15,10 @@ export interface StoryFieldPrompts {
 	media_descriptions: string;
 }
 
+export type FlatPromptKey = 'generate-social-copy';
+
 export interface SystemPrompts {
-	'generate-thread': string;
-	'generate-message': string;
+	'generate-social-copy': string;
 	'generate-story': StoryFieldPrompts;
 }
 
@@ -35,31 +28,26 @@ export interface StoryFieldDefaults {
 	media_descriptions: string;
 }
 
-export type FlatPromptKey = 'generate-thread' | 'generate-message';
-
-export type FormatInstructionKey =
-	| 'generate-thread'
-	| 'generate-message'
-	| 'generate-story';
+export type FormatInstructionKey = 'generate-story' | 'generate-social-copy';
 
 export interface Settings {
 	enable_neutrality_pass: boolean;
-	thread_counts: ThreadCounts;
 	network_instructions: NetworkInstructions;
 	system_prompts: SystemPrompts;
 }
 
 export interface ApiResponse {
 	settings: Settings;
-	defaults: Omit<SystemPrompts, 'generate-story'>;
+	defaults: Pick<SystemPrompts, FlatPromptKey>;
 	format_instructions: Record<FormatInstructionKey, string>;
 	story_field_defaults: StoryFieldDefaults;
 }
 
 export interface SettingsStoreState {
 	settings: Settings;
-	defaults: Omit<SystemPrompts, 'generate-story'>;
+	defaults: Pick<SystemPrompts, FlatPromptKey>;
 	formatInstructions: Record<FormatInstructionKey, string>;
 	storyFieldDefaults: StoryFieldDefaults;
 	isLoaded: boolean;
+	[key: string]: unknown;
 }

@@ -37,6 +37,8 @@ class Bootstrap {
 		require_once plugin_dir_path( __DIR__ ) . '/includes/admin-surfaces/class-admin-surfaces.php';
 		require_once plugin_dir_path( __DIR__ ) . '/includes/admin-surfaces/class-acp-column.php';
 		require_once plugin_dir_path( __DIR__ ) . '/includes/admin-surfaces/class-admin-bar.php';
+		require_once plugin_dir_path( __DIR__ ) . '/includes/admin-surfaces/class-dataviews-provider.php';
+		require_once plugin_dir_path( __DIR__ ) . '/includes/class-admin-dataview-lists.php';
 	}
 
 	private function init_dependencies() {
@@ -47,13 +49,15 @@ class Bootstrap {
 		new Admin_Surfaces( $this->get_loader() );
 		new Admin_Bar( $this->get_loader() );
 		new ACP_Column( $this->get_loader() );
+		new DataViews_Provider( $this->get_loader() );
+		new Admin_Dataview_Lists( $this->get_loader() );
 		$this->loader->add_action( 'init', $this, 'register_blocks' );
 		add_action( 'plugins_loaded', array( $this, 'register_wp_ai_features' ), 11 );
 	}
 
 	public function register_blocks(): void {
 		$blocks_dir = plugin_dir_path( __DIR__ ) . 'build/';
-		$blocks     = array( 'thread', 'message', 'story' );
+		$blocks     = array( 'container', 'message', 'story' );
 		foreach ( $blocks as $block ) {
 			$block_path = $blocks_dir . $block;
 			if ( file_exists( $block_path ) ) {
@@ -71,9 +75,9 @@ class Bootstrap {
 		}
 		require_once plugin_dir_path( __DIR__ ) . '/includes/ai/class-editorial-passes.php';
 		require_once plugin_dir_path( __DIR__ ) . '/includes/ai/class-number-check.php';
-		require_once plugin_dir_path( __DIR__ ) . '/includes/ai/class-generate-thread-ability.php';
-		require_once plugin_dir_path( __DIR__ ) . '/includes/ai/class-generate-message-ability.php';
 		require_once plugin_dir_path( __DIR__ ) . '/includes/ai/class-generate-story-ability.php';
+		require_once plugin_dir_path( __DIR__ ) . '/includes/ai/class-generate-social-copy-ability.php';
+		require_once plugin_dir_path( __DIR__ ) . '/includes/ai/class-add-social-package-ability.php';
 		require_once plugin_dir_path( __DIR__ ) . '/includes/ai/class-social-builder-ai-feature.php';
 
 		add_action(

@@ -6,7 +6,7 @@ interface ReportPackageChapter {
 	key: string;
 	postId: number;
 }
-/** Minimal post shape for source-post lookup in the thread block. */
+/** Minimal post shape for source-post lookup in the container block. */
 interface SourcePostRecord {
 	meta?: {
 		multiSectionReport?: ReportPackageChapter[];

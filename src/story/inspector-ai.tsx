@@ -1,6 +1,11 @@
 import { __ } from '@wordpress/i18n';
 import { useState, useCallback } from '@wordpress/element';
-import { PanelBody, Button, TextareaControl } from '@wordpress/components';
+import {
+	PanelBody,
+	Button,
+	TextareaControl,
+	ToggleControl,
+} from '@wordpress/components';
 import { useSelect } from '@wordpress/data';
 import { store as coreStore } from '@wordpress/core-data';
 import { useAISuggest, AISuggestButton, AISuggestModal } from '@prc/components';
@@ -9,9 +14,8 @@ import { StoryResult, StorySuggestionPreview } from './suggestion-preview';
 
 declare const prcSocialBuilderAI: {
 	enabled: boolean;
-	threadAbilityName: string;
-	messageAbilityName: string;
 	storyAbilityName: string;
+	socialCopyAbilityName: string;
 };
 
 interface MediaRecord {
@@ -49,6 +53,7 @@ export function StoryInspectorAI({
 	const [selectedMediaIndex, setSelectedMediaIndex] = useState<number | null>(
 		null
 	);
+	const [includeLastTurn, setIncludeLastTurn] = useState(true);
 
 	const { isLoading, error, result, fetch, reset, dismissError } =
 		useAISuggest<StoryResult>({
@@ -77,15 +82,31 @@ export function StoryInspectorAI({
 		[result?.suggestedMediaIds]
 	);
 
+	const buildRequest = useCallback(
+		(previousOutput?: { caption: string; overlayText: string }) => {
+			const request: {
+				postId: number;
+				platform: string;
+				additionalInstructions?: string;
+				previousOutput?: { caption: string; overlayText: string };
+			} = {
+				postId: sourcePostId,
+				platform,
+				additionalInstructions: aiAdditionalInstructions || undefined,
+			};
+			if (previousOutput) {
+				request.previousOutput = previousOutput;
+			}
+			return request;
+		},
+		[sourcePostId, platform, aiAdditionalInstructions]
+	);
+
 	const handleGenerate = useCallback(() => {
 		setIsModalOpen(true);
 		setSelectedMediaIndex(null);
-		fetch({
-			postId: sourcePostId,
-			platform,
-			additionalInstructions: aiAdditionalInstructions || undefined,
-		});
-	}, [fetch, sourcePostId, platform, aiAdditionalInstructions]);
+		fetch(buildRequest());
+	}, [fetch, buildRequest]);
 
 	const handleApply = useCallback(() => {
 		if (!result) {
@@ -118,14 +139,17 @@ export function StoryInspectorAI({
 	}, [reset]);
 
 	const handleRegenerate = useCallback(() => {
+		const previous =
+			includeLastTurn && result
+				? {
+						caption: result.caption,
+						overlayText: result.overlayText,
+					}
+				: undefined;
 		reset();
 		setSelectedMediaIndex(null);
-		fetch({
-			postId: sourcePostId,
-			platform,
-			additionalInstructions: aiAdditionalInstructions || undefined,
-		});
-	}, [reset, fetch, sourcePostId, platform, aiAdditionalInstructions]);
+		fetch(buildRequest(previous));
+	}, [includeLastTurn, result, reset, fetch, buildRequest]);
 
 	if (!aiConfig?.enabled) {
 		return null;
@@ -179,15 +203,57 @@ export function StoryInspectorAI({
 				footer={
 					result && (
 						<>
-							<Button variant="primary" onClick={handleApply}>
-								{__('Apply', 'prc-social-builder')}
-							</Button>
-							<Button
-								variant="tertiary"
-								onClick={handleRegenerate}
+							<TextareaControl
+								__nextHasNoMarginBottom
+								label={__(
+									'Additional instructions',
+									'prc-social-builder'
+								)}
+								help={__(
+									'Optional guidance for the next regenerate (e.g. make it shorter).',
+									'prc-social-builder'
+								)}
+								value={aiAdditionalInstructions}
+								onChange={(val) =>
+									setAttributes({
+										aiAdditionalInstructions: val,
+									})
+								}
+								rows={3}
+							/>
+							<div
+								style={{
+									display: 'flex',
+									gap: '8px',
+									flexWrap: 'wrap',
+									marginTop: '12px',
+								}}
 							>
-								{__('Regenerate', 'prc-social-builder')}
-							</Button>
+								<Button variant="primary" onClick={handleApply}>
+									{__('Apply', 'prc-social-builder')}
+								</Button>
+								<Button
+									variant="tertiary"
+									onClick={handleRegenerate}
+								>
+									{__('Regenerate', 'prc-social-builder')}
+								</Button>
+							</div>
+							<div style={{ marginTop: '8px' }}>
+								<ToggleControl
+									__nextHasNoMarginBottom
+									label={__(
+										'Include last turn',
+										'prc-social-builder'
+									)}
+									help={__(
+										'Send the previous generation as context so additional instructions can refine it.',
+										'prc-social-builder'
+									)}
+									checked={includeLastTurn}
+									onChange={setIncludeLastTurn}
+								/>
+							</div>
 						</>
 					)
 				}
