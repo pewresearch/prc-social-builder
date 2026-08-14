@@ -40,7 +40,7 @@ class Admin_Dataview_Lists {
 	/**
 	 * List configs owned by this plugin.
 	 *
-	 * @return array<int, array<string, string>>
+	 * @return array<int, array<string, mixed>>
 	 */
 	public static function list_configs(): array {
 		return array(
@@ -49,6 +49,11 @@ class Admin_Dataview_Lists {
 				'pageSlug'  => 'prc-wp-admin-dataview-social-package',
 				'menuTitle' => __( 'All Social Packages', 'prc-social-builder' ),
 				'pageTitle' => __( 'All Social Packages', 'prc-social-builder' ),
+				'duplicate' => array(
+					'includeMeta' => array(
+						Content_Type::$meta_key_associated_posts,
+					),
+				),
 			),
 		);
 	}
