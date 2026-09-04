@@ -14,11 +14,11 @@
     "prc-social/platform",
     "prc-social/sourcePostId"
   ],
+  "allowedBlocks": [
+    "core/paragraph",
+    "tabor/markdown-comment"
+  ],
   "attributes": {
-    "content": {
-      "type": "string",
-      "default": ""
-    },
     "mediaId": {
       "type": "number",
       "default": 0

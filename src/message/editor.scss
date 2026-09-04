@@ -6,24 +6,34 @@
 		box-shadow: 0 0 0 1px var(--wp-admin-theme-color);
 	}
 
-	&__edit-overlay {
-		padding: 16px;
-		display: flex;
-		flex-direction: column;
-		gap: 12px;
+	[data-text-slot] {
+		white-space: normal;
+	}
 
-		[contenteditable] {
-			font-size: 15px;
-			line-height: 1.4;
-			color: #0f1419;
-			white-space: pre-wrap;
-			word-wrap: break-word;
+	&__inner {
+		min-height: 1.4em;
+
+		.block-editor-block-list__block {
+			margin-top: 0;
+			margin-bottom: 8px;
+
+			&:last-child {
+				margin-bottom: 0;
+			}
 		}
 
-		[contenteditable]:empty::before {
-			content: attr(data-placeholder);
-			color: #9ca3af;
-			pointer-events: none;
+		.wp-block-paragraph {
+			font: inherit;
+			color: inherit;
+			line-height: inherit;
+			margin: 0;
+		}
+
+		.wp-block-tabor-markdown-comment {
+			position: relative;
+			padding-left: 28px;
+			font-size: 13px;
+			line-height: 1.3;
 		}
 	}
 }

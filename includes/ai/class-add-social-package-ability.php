@@ -19,8 +19,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Registers and executes prc-social-builder/add-social-package.
- *
- * @since 1.0.0
  */
 class Add_Social_Package_Ability {
 
@@ -60,27 +58,27 @@ class Add_Social_Package_Ability {
 				'input_schema'        => array(
 					'type'                 => 'object',
 					'properties'           => array(
-						'isDefaultList' => array(
+						'isDefaultList'    => array(
 							'type'        => 'boolean',
 							'description' => 'Create the default social package set? (Facebook, LinkedIn, Twitter, Bluesky)',
 						),
-						'blankTemplate' => array(
+						'blankTemplate'    => array(
 							'type'        => 'boolean',
 							'description' => 'Skip generation of AI social copy template',
 						),
-						'associatedPostId'        => array(
+						'associatedPostId' => array(
 							'type'        => 'number',
 							'description' => 'The associated post id for the package',
 						),
-						'title'        => array(
+						'title'            => array(
 							'type'        => 'string',
 							'description' => 'Social package title',
 						),
-						'skipCopyEdits' => array(
+						'skipCopyEdits'    => array(
 							'type'        => 'boolean',
 							'description' => 'Skip AI editorial skills?',
 						),
-						'content'       => array(
+						'content'          => array(
 							'type'        => 'array',
 							'description' => 'List of content to include',
 							'items'       => array(
@@ -94,7 +92,7 @@ class Add_Social_Package_Ability {
 										'type'        => 'number',
 										'description' => 'The id of the post to generate social copy for.',
 									),
-									'includeReportChildren'    => array(
+									'includeReportChildren' => array(
 										'type'        => 'boolean',
 										'description' => 'Add children',
 									),
@@ -106,16 +104,16 @@ class Add_Social_Package_Ability {
 										'type'        => 'string',
 										'description' => 'Preformatted text to generate the social copy from',
 									),
-								)
-							)
+								),
+							),
 						),
-						'copyList'      => array(
+						'copyList'         => array(
 							'type'        => 'array',
 							'description' => 'List of platforms to create social copy for',
 							'items'       => array(
 								'type'       => 'object',
 								'properties' => array(
-									'platform'               => array(
+									'platform' => array(
 										'type'        => 'string',
 										'description' => 'One of the supported social platforms: twitter, facebook, threads, bluesky, linkedin',
 									),
@@ -123,26 +121,26 @@ class Add_Social_Package_Ability {
 										'type'        => 'string',
 										'description' => 'Optional additional instructions from the editor to guide generation.',
 									),
-									'tone'                   => array(
+									'tone'     => array(
 										'type'        => 'string',
 										'description' => 'Optional tone guidance for the copy.',
 									),
 								),
 							),
 						),
-						'site_id'       => \PRC\Platform\AI\Utils\site_id_input_schema_property(),
+						'site_id'          => \PRC\Platform\AI\Utils\site_id_input_schema_property(),
 					),
 					'required'             => array( 'isDefaultList', 'title', 'content' ),
 					'additionalProperties' => false,
 				),
 				'output_schema'       => array(
-					'type'        => 'object',
-					'properties'       => array(
+					'type'       => 'object',
+					'properties' => array(
 						'newPostId' => array(
 							'type'        => 'number',
-							'description' => 'The ID of the new post'
-						)
-					)
+							'description' => 'The ID of the new post',
+						),
+					),
 				),
 				'execute_callback'    => function ( $input ) {
 					return $this->with_site(
@@ -163,7 +161,6 @@ class Add_Social_Package_Ability {
 				'meta'                => array(
 					'annotations'    => array(
 						'instructions' => 'Adds a social package based on a passed postId. Optionally pass site_id to run against a specific multisite blog.',
-						// 'readonly'     => true,
 						'destructive'  => false,
 						'idempotent'   => false,
 					),
@@ -179,31 +176,33 @@ class Add_Social_Package_Ability {
 	}
 
 
+	/**
+	 * Build the generate-social-copy ability input.
+	 *
+	 * @param array<string, mixed> $input Ability input.
+	 * @return array<string, mixed>|WP_Error
+	 */
 	private function build_package_request( array $input ) {
-		$is_default = isset( $input['isDefaultList'] ) ? (bool) $input['isDefaultList'] : true;
-		$copy_list = isset( $input['copyList'] ) ? (array) $input['copyList'] : array(); 
-		$content_list = isset( $input['content'] ) ? (array) $input['content'] : array(); 
-		$skip_copy_edits      = isset( $input['skipCopyEdits'] ) ? (bool) $input['skipCopyEdits'] : false;
-		$site_id = \PRC\Platform\AI\Utils\resolve_site_id( $input ); 
+		$is_default      = isset( $input['isDefaultList'] ) ? (bool) $input['isDefaultList'] : true;
+		$copy_list       = isset( $input['copyList'] ) ? (array) $input['copyList'] : array();
+		$content_list    = isset( $input['content'] ) ? (array) $input['content'] : array();
+		$skip_copy_edits = isset( $input['skipCopyEdits'] ) ? (bool) $input['skipCopyEdits'] : false;
+		$site_id         = \PRC\Platform\AI\Utils\resolve_site_id( $input );
 
-		// If no content was passed, exit 
-		if ( empty( $content_list )  ){
+		if ( empty( $content_list ) ) {
 			return new WP_Error( 'missing_content', __( 'No content provided.', 'prc-social-builder' ) );
 		}
 
-		// Verify the pacakge type
 		$is_default_package = ( $is_default || empty( $copy_list ) );
 
-		// Build the request 
 		$request = array(
 			'isDefaultList' => $is_default_package,
 			'content'       => $content_list,
 			'skipCopyEdits' => $skip_copy_edits,
-			'site_id'       => $site_id
+			'site_id'       => $site_id,
 		);
-		
-		// If this is a custom package, add the custom package
-		if ( ! $is_default_package ) { 
+
+		if ( ! $is_default_package ) {
 			$request['copyList'] = $copy_list;
 		}
 
@@ -211,108 +210,90 @@ class Add_Social_Package_Ability {
 	}
 
 	/**
+	 * Create a social-package post from ability input.
+	 *
 	 * @param array<string, mixed> $input Input parameters.
 	 * @return array<string, mixed>|WP_Error
 	 */
 	public function add_social_package( $input ) {
 		$generate_social_copy = wp_get_ability( 'prc-social-builder/generate-social-copy' );
-		$use_blank_template       = isset( $input['blankTemplate'] ) ? (bool) $input['blankTemplate'] : false;
+		$use_blank_template   = isset( $input['blankTemplate'] ) ? (bool) $input['blankTemplate'] : false;
 		$associated_post_id   = ( isset( $input['associatedPostId'] ) ) ? (int) $input['associatedPostId'] : 0;
 		$package_title        = isset( $input['title'] ) ? sanitize_text_field( (string) $input['title'] ) : '';
 
-		// Return if there is not package title
-		if ( '' === trim( $package_title ) ){ 
-			return new WP_Error( 'missing_title', __( "Please provide a package title.", 'prc-social-builder' ) );
+		if ( '' === trim( $package_title ) ) {
+			return new WP_Error( 'missing_title', __( 'Please provide a package title.', 'prc-social-builder' ) );
 		}
 
-		// If we didn't ask for a blank template
-		if ( ! $use_blank_template ){
-			// And our AI abilities exist
-			if ( ! $generate_social_copy ){
+		if ( ! $use_blank_template ) {
+			if ( ! $generate_social_copy ) {
 				return new WP_Error( 'ai_generation_unavailable', __( 'AI social copy generation is not available.', 'prc-social-builder' ) );
 			}
-			// Build the query for social copy
-			$request = $this->build_package_request( $input ); 
-			if ( is_wp_error( $request ) ){
+			$request = $this->build_package_request( $input );
+			if ( is_wp_error( $request ) ) {
 				return $request;
 			}
-			// Generate the social copy
 			$social_copy = $generate_social_copy->execute( $request );
-			// If an error was had, return the error
 			if ( is_wp_error( $social_copy ) ) {
-				// Handle WP_Error
 				return $social_copy;
-			} 
+			}
 		}
-		// Add a new social package
-		$posted = $this->post_social_package( $social_copy ?? array(), $package_title, $associated_post_id);
-		// If unsuccessful, note
+
+		$posted = $this->post_social_package( $social_copy ?? array(), $package_title, $associated_post_id );
 		if ( is_wp_error( $posted ) ) {
 			return $posted;
 		}
-		// Otherwise, if an associated id was passed, attempt to add it
-		if ( $associated_post_id ){
-			add_post_meta( $posted, '_prc_associated_posts', $associated_post_id);
+		if ( $associated_post_id ) {
+			add_post_meta( $posted, '_prc_associated_posts', $associated_post_id );
 		}
-		// Return the new id. 
-		return array( 'newPostId' => $posted); 
+
+		return array( 'newPostId' => $posted );
 	}
 
 	/**
-	 * @return string|WP_Error
+	 * Insert a draft social-package post from generated copy.
+	 *
+	 * @param array  $social_copy        Generated copy rows.
+	 * @param string $package_title      Post title.
+	 * @param int    $associated_post_id Source post ID stored on each container.
+	 * @return int|WP_Error
 	 */
-	private function post_social_package( array $social_copy, string $package_title, int $associatedPostId ) {	
-		// List of container blocks to add 
-		$social_container_blocks = array(); 
-		// For each piece of copy 
+	private function post_social_package( array $social_copy, string $package_title, int $associated_post_id ) {
+		$social_container_blocks = array();
 		foreach ( $social_copy as $copy ) {
-			// Skip if we got an error during copy generation
-			if ( isset( $copy['error'] ) && $copy['error'] ){
+			if ( isset( $copy['error'] ) && $copy['error'] ) {
 				continue;
 			}
-			// Create the block array
-			$container = array(
-				'blockName' => 'prc-social/container', 
-				'attrs'     => array (
+			$container                 = array(
+				'blockName'    => 'prc-social/container',
+				'attrs'        => array(
 					'platform'                 => $copy['platform'],
-					'sourcePostId'             => $associatedPostId,
-					'aiAdditionalInstructions' => $copy['additionalInstructions']
+					'sourcePostId'             => $associated_post_id,
+					'aiAdditionalInstructions' => $copy['additionalInstructions'],
 				),
-				'innerBlocks' => array( 
-					array(
-						'blockName'    => 'prc-social/message', 
-						'attrs'        => array (
-							'content' => $copy['copy']
-						),
-						'innerBlocks'  => array(),
-						'innerHTML'    => '',
-						'innerContent' => array()
-					)
+				'innerBlocks'  => array(
+					Message_Text::message_block( (string) $copy['copy'] ),
 				),
 				'innerHTML'    => '<div class="wp-block-prc-social-container"></div>',
-				'innerContent' => array( 
-					'<div class="wp-block-prc-social-container">', 
+				'innerContent' => array(
+					'<div class="wp-block-prc-social-container">',
 					null,
-					'</div>'
-				)
+					'</div>',
+				),
 			);
-			// Add the block to the list of containers
 			$social_container_blocks[] = $container;
 		}
 
-		// Convert the blocks to content string with extra slash for unslash
-		$post_content = wp_slash( serialize_blocks( $social_container_blocks ) );
-		// Create the post array 
+		$post_content            = wp_slash( serialize_blocks( $social_container_blocks ) );
 		$social_package_post_arr = array(
 			'post_content' => $post_content,
 			'post_type'    => 'social-package',
 			'post_title'   => $package_title,
-			'post_status'  => 'draft'
+			'post_status'  => 'draft',
 		);
-		// Post the package 
-		$new_package_id = wp_insert_post( $social_package_post_arr );
+		$new_package_id          = wp_insert_post( $social_package_post_arr );
 		if ( 0 === $new_package_id ) {
-			$new_package_id = new WP_Error( 'post_id_was_0', __( "Failed to create the social package. `wp_insert_post` returned 0.", 'prc-social-builder' ) );
+			$new_package_id = new WP_Error( 'post_id_was_0', __( 'Failed to create the social package. `wp_insert_post` returned 0.', 'prc-social-builder' ) );
 		}
 		return $new_package_id;
 	}

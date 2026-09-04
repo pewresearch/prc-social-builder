@@ -39,6 +39,7 @@ class Bootstrap {
 		require_once plugin_dir_path( __DIR__ ) . '/includes/admin-surfaces/class-admin-bar.php';
 		require_once plugin_dir_path( __DIR__ ) . '/includes/admin-surfaces/class-dataviews-provider.php';
 		require_once plugin_dir_path( __DIR__ ) . '/includes/class-admin-dataview-lists.php';
+		require_once plugin_dir_path( __DIR__ ) . '/includes/class-nexus-system.php';
 	}
 
 	private function init_dependencies() {
@@ -53,6 +54,15 @@ class Bootstrap {
 		new Admin_Dataview_Lists( $this->get_loader() );
 		$this->loader->add_action( 'init', $this, 'register_blocks' );
 		add_action( 'plugins_loaded', array( $this, 'register_wp_ai_features' ), 11 );
+		add_action(
+			'prc_nexus_systems',
+			static function ( $systems ): void {
+				if ( ! $systems instanceof \PRC\Platform\Slack\Nexus\Systems ) {
+					return;
+				}
+				( new Nexus_System() )->register( $systems );
+			}
+		);
 	}
 
 	public function register_blocks(): void {

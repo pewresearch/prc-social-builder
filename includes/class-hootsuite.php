@@ -1,4 +1,10 @@
 <?php
+/**
+ * Hootsuite REST and publish integration.
+ *
+ * @package PRC\Platform\Social_Builder
+ */
+
 declare(strict_types=1);
 
 namespace PRC\Platform\Social_Builder;
@@ -8,15 +14,37 @@ use WP_REST_Request;
 use WP_REST_Response;
 use WP_REST_Server;
 
+/**
+ * Pushes published social packages to Hootsuite as drafts.
+ */
 class Hootsuite {
+	/**
+	 * REST namespace.
+	 *
+	 * @var string
+	 */
 	const REST_NAMESPACE = 'prc-social-builder/v1';
+
+	/**
+	 * Hootsuite API base URL.
+	 *
+	 * @var string
+	 */
 	const HOOTSUITE_API_URL = 'https://platform.hootsuite.com/v1';
 
+	/**
+	 * Wire REST and publish hooks.
+	 *
+	 * @param Loader|null $loader Plugin loader.
+	 */
 	public function __construct( $loader = null ) {
 		$loader->add_action( 'rest_api_init', $this, 'register_rest_routes' );
 		$loader->add_action( 'transition_post_status', $this, 'on_publish', 10, 3 );
 	}
 
+	/**
+	 * Register REST routes.
+	 */
 	public function register_rest_routes(): void {
 		register_rest_route(
 			self::REST_NAMESPACE,
@@ -50,23 +78,54 @@ class Hootsuite {
 		);
 	}
 
+	/**
+	 * REST: list Hootsuite social profiles.
+	 *
+	 * @param WP_REST_Request $unused_request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
 	public function rest_get_profiles( WP_REST_Request $unused_request ): WP_REST_Response|WP_Error {
 		$profiles = $this->get_social_profiles();
 		if ( is_wp_error( $profiles ) ) {
 			return $profiles;
 		}
-		return new WP_REST_Response( array( 'success' => true, 'profiles' => $profiles ), 200 );
+		return new WP_REST_Response(
+			array(
+				'success'  => true,
+				'profiles' => $profiles,
+			),
+			200 
+		);
 	}
 
+	/**
+	 * REST: push a package to Hootsuite as drafts.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
 	public function rest_push_package( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$package_id = $request->get_param( 'package_id' );
-		$result = $this->create_drafts_from_package( $package_id );
+		$result     = $this->create_drafts_from_package( $package_id );
 		if ( is_wp_error( $result ) ) {
 			return $result;
 		}
-		return new WP_REST_Response( array( 'success' => true, 'drafts' => $result ), 200 );
+		return new WP_REST_Response(
+			array(
+				'success' => true,
+				'drafts'  => $result,
+			),
+			200 
+		);
 	}
 
+	/**
+	 * Create Hootsuite drafts when a social package is first published.
+	 *
+	 * @param string   $new_status New status.
+	 * @param string   $old_status Old status.
+	 * @param \WP_Post $post       Post.
+	 */
 	public function on_publish( string $new_status, string $old_status, \WP_Post $post ): void {
 		if ( Content_Type::$post_type !== $post->post_type ) {
 			return;
@@ -76,41 +135,49 @@ class Hootsuite {
 		}
 		$result = $this->create_drafts_from_package( $post->ID );
 		if ( is_wp_error( $result ) ) {
-			$errors = get_post_meta( $post->ID, '_hootsuite_errors', true );
-			$errors = is_array( $errors ) ? $errors : array();
+			$errors   = get_post_meta( $post->ID, '_hootsuite_errors', true );
+			$errors   = is_array( $errors ) ? $errors : array();
 			$errors[] = $result->get_error_message();
 			update_post_meta( $post->ID, '_hootsuite_errors', $errors );
 		}
 	}
 
+	/**
+	 * Create Hootsuite drafts from each message and story in a package.
+	 *
+	 * @param int $package_id Social package post ID.
+	 * @return array|WP_Error Draft IDs on success.
+	 */
 	public function create_drafts_from_package( int $package_id ): array|WP_Error {
 		$post = get_post( $package_id );
 		if ( ! $post || Content_Type::$post_type !== $post->post_type ) {
 			return new WP_Error( 'invalid_package', __( 'Invalid social package.', 'prc-social-builder' ) );
 		}
 
-		$blocks = parse_blocks( $post->post_content );
+		$blocks    = parse_blocks( $post->post_content );
 		$draft_ids = array();
-		$errors = array();
+		$errors    = array();
 
 		foreach ( $blocks as $block ) {
 			if ( 'prc-social/container' === $block['blockName'] ) {
-				$platform = $block['attrs']['platform'] ?? 'twitter';
+				$platform     = $block['attrs']['platform'] ?? 'twitter';
 				$inner_blocks = $block['innerBlocks'] ?? array();
 				foreach ( $inner_blocks as $inner ) {
 					if ( 'prc-social/message' !== $inner['blockName'] ) {
 						continue;
 					}
-					$content = $inner['attrs']['content'] ?? '';
+					$content   = Message_Text::from_block( $inner );
 					$media_url = $inner['attrs']['mediaUrl'] ?? '';
 					if ( empty( $content ) && empty( $media_url ) ) {
 						continue;
 					}
-					$result = $this->create_draft( array(
-						'platform'  => $platform,
-						'text'      => $content,
-						'media_url' => $media_url,
-					) );
+					$result = $this->create_draft(
+						array(
+							'platform'  => $platform,
+							'text'      => $content,
+							'media_url' => $media_url,
+						) 
+					);
 					if ( is_wp_error( $result ) ) {
 						$errors[] = $result->get_error_message();
 					} elseif ( ! empty( $result['data']['id'] ) ) {
@@ -118,17 +185,19 @@ class Hootsuite {
 					}
 				}
 			} elseif ( 'prc-social/story' === $block['blockName'] ) {
-				$platform = $block['attrs']['platform'] ?? 'instagram';
-				$caption = $block['attrs']['caption'] ?? '';
+				$platform  = $block['attrs']['platform'] ?? 'instagram';
+				$caption   = $block['attrs']['caption'] ?? '';
 				$media_url = $block['attrs']['mediaUrl'] ?? '';
 				if ( empty( $caption ) && empty( $media_url ) ) {
 					continue;
 				}
-				$result = $this->create_draft( array(
-					'platform'  => $platform,
-					'text'      => $caption,
-					'media_url' => $media_url,
-				) );
+				$result = $this->create_draft(
+					array(
+						'platform'  => $platform,
+						'text'      => $caption,
+						'media_url' => $media_url,
+					) 
+				);
 				if ( is_wp_error( $result ) ) {
 					$errors[] = $result->get_error_message();
 				} elseif ( ! empty( $result['data']['id'] ) ) {
@@ -147,19 +216,29 @@ class Hootsuite {
 		return $draft_ids;
 	}
 
+	/**
+	 * Create one Hootsuite draft from message fields.
+	 *
+	 * @param array $message_data Platform, text, and optional media URL.
+	 * @return array|WP_Error
+	 */
 	public function create_draft( array $message_data ): array|WP_Error {
 		$profiles = $this->get_social_profiles();
 		if ( is_wp_error( $profiles ) ) {
 			return $profiles;
 		}
 
-		$platform = $message_data['platform'] ?? '';
+		$platform   = $message_data['platform'] ?? '';
 		$profile_id = $this->resolve_profile_id( $platform, $profiles );
 
 		if ( ! $profile_id ) {
 			return new WP_Error(
 				'profile_not_found',
-				sprintf( __( 'No Hootsuite profile found for platform: %s', 'prc-social-builder' ), $platform )
+				sprintf(
+					/* translators: %s: social platform key */
+					__( 'No Hootsuite profile found for platform: %s', 'prc-social-builder' ),
+					$platform
+				)
 			);
 		}
 
@@ -178,6 +257,7 @@ class Hootsuite {
 	/**
 	 * Map a Social Builder platform key to Hootsuite social profile type strings.
 	 *
+	 * @param string $platform Platform key.
 	 * @return array<int, string>
 	 */
 	private function get_profile_type_aliases( string $platform ): array {
@@ -194,7 +274,9 @@ class Hootsuite {
 	/**
 	 * Resolve a Hootsuite social profile ID for a platform key.
 	 *
-	 * @param array<int, array<string, mixed>> $profiles
+	 * @param string                           $platform Platform key.
+	 * @param array<int, array<string, mixed>> $profiles Hootsuite profiles.
+	 * @return string|null
 	 */
 	private function resolve_profile_id( string $platform, array $profiles ): ?string {
 		$aliases = $this->get_profile_type_aliases( $platform );
@@ -210,6 +292,11 @@ class Hootsuite {
 		return null;
 	}
 
+	/**
+	 * Hootsuite API key from the platform constant.
+	 *
+	 * @return string|WP_Error
+	 */
 	protected function get_api_key(): string|WP_Error {
 		if ( ! defined( 'PRC_HOOTSUITE_API_KEY' ) || empty( PRC_HOOTSUITE_API_KEY ) ) {
 			return new WP_Error( 'missing_api_key', __( 'Hootsuite API key is not configured.', 'prc-social-builder' ) );
@@ -217,20 +304,28 @@ class Hootsuite {
 		return PRC_HOOTSUITE_API_KEY;
 	}
 
+	/**
+	 * Send a request to the Hootsuite API.
+	 *
+	 * @param string $endpoint Path under the API base URL.
+	 * @param string $method   HTTP method.
+	 * @param array  $body     JSON body for write methods.
+	 * @return array|WP_Error
+	 */
 	protected function make_api_request( string $endpoint, string $method = 'GET', array $body = array() ): array|WP_Error {
 		$api_key = $this->get_api_key();
 		if ( is_wp_error( $api_key ) ) {
 			return $api_key;
 		}
 
-		$url = self::HOOTSUITE_API_URL . $endpoint;
+		$url  = self::HOOTSUITE_API_URL . $endpoint;
 		$args = array(
 			'method'  => $method,
 			'headers' => array(
 				'Authorization' => 'Bearer ' . $api_key,
 				'Content-Type'  => 'application/json',
 			),
-			'timeout' => 30,
+			'timeout' => 30, // phpcs:ignore WordPressVIPMinimum.Performance.RemoteRequestTimeout.timeout_timeout
 		);
 
 		if ( ! empty( $body ) && in_array( $method, array( 'POST', 'PUT', 'PATCH' ), true ) ) {
@@ -242,9 +337,9 @@ class Hootsuite {
 			return $response;
 		}
 
-		$status_code = wp_remote_retrieve_response_code( $response );
+		$status_code   = wp_remote_retrieve_response_code( $response );
 		$response_body = wp_remote_retrieve_body( $response );
-		$data = json_decode( $response_body, true );
+		$data          = json_decode( $response_body, true );
 
 		if ( $status_code >= 400 ) {
 			$error_message = $data['errors'][0]['message'] ?? __( 'Hootsuite API error.', 'prc-social-builder' );
@@ -254,9 +349,14 @@ class Hootsuite {
 		return $data ?? array();
 	}
 
+	/**
+	 * Cached Hootsuite social profiles.
+	 *
+	 * @return array|WP_Error
+	 */
 	public function get_social_profiles(): array|WP_Error {
 		$cache_key = 'prc_hootsuite_profiles';
-		$cached = get_transient( $cache_key );
+		$cached    = get_transient( $cache_key );
 		if ( false !== $cached ) {
 			return $cached;
 		}

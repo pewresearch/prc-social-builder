@@ -15,6 +15,10 @@ import {
 	SocialCopyMessage,
 	SocialCopyMessageItem,
 } from './social-copy-message-item';
+import {
+	getMessageCopy,
+	splitCopyIntoParagraphs,
+} from '../message/message-text';
 
 import {
 	GeneratorChoices,
@@ -77,7 +81,7 @@ export function ContainerInspectorAI({
 			const { getBlocks } = select(blockEditorStore);
 			const [first] = getBlocks(clientId);
 			return {
-				copy: first?.attributes?.content ?? ''
+				copy: getMessageCopy(first),
 			};
 		},
 		[clientId]
@@ -87,7 +91,6 @@ export function ContainerInspectorAI({
 		if (generated && !generated.error) {
 			return { copy: generated.copy };
 		}
-		// Prefer backup after a failed regeneration (item-level or hook-level).
 		if (copyBackup?.copy) {
 			return copyBackup;
 		}
@@ -97,7 +100,6 @@ export function ContainerInspectorAI({
 		return null;
 	}, [result, existingMessage, copyBackup]);
 
-	// Pre-select all messages when results arrive.
 	useEffect(() => {
 		if (result) {
 			setSelectedIds(new Set(result.map((msg) => msg.platform)));
@@ -108,7 +110,7 @@ export function ContainerInspectorAI({
 		const copyItem: {
 			platform: string;
 			additionalInstructions?: string;
-			previousOutput?: { copy: string; };
+			previousOutput?: { copy: string };
 			requestedEdits?: string;
 		} = {
 			platform,
@@ -176,9 +178,13 @@ export function ContainerInspectorAI({
 		}
 		const selected = result.filter((msg) => selectedIds.has(msg.platform));
 		const newBlocks = selected.map((msg) =>
-			createBlock('prc-social/message', {
-				content: msg.copy,
-			})
+			createBlock(
+				'prc-social/message',
+				{},
+				splitCopyIntoParagraphs(msg.copy).map((paragraphContent) =>
+					createBlock('core/paragraph', { content: paragraphContent })
+				)
+			)
 		);
 		replaceInnerBlocks(clientId, newBlocks, false);
 		handleClose();
@@ -260,7 +266,6 @@ export function ContainerInspectorAI({
 					<AISuggestionsList<SocialCopyMessage>
 						suggestions={result}
 						selectedIds={selectedIds}
-						// onToggle={handleToggle}
 						getId={(msg) => msg.platform}
 						renderItem={(msg) => (
 							<SocialCopyMessageItem message={msg} />

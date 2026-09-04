@@ -59,6 +59,7 @@ register_deactivation_hook( __FILE__, '\PRC\Platform\Social_Builder\deactivate' 
  * Helper utilities
  */
 require plugin_dir_path( __FILE__ ) . 'includes/utils.php';
+require plugin_dir_path( __FILE__ ) . 'includes/class-message-text.php';
 
 /**
  * The core bootstrap class that is used to define the hooks that initialize the various components.
