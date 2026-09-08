@@ -15,10 +15,30 @@ use WP_Error;
  * @package    PRC\Platform\Social_Builder
  */
 class Bootstrap {
+	/**
+	 * The plugin loader.
+	 *
+	 * @var Loader
+	 */
 	protected $loader;
+
+	/**
+	 * The plugin slug.
+	 *
+	 * @var string
+	 */
 	protected $plugin_name;
+
+	/**
+	 * The plugin version.
+	 *
+	 * @var string
+	 */
 	protected $version;
 
+	/**
+	 * Set up the plugin loader and dependencies.
+	 */
 	public function __construct() {
 		$this->version     = '1.0.0';
 		$this->plugin_name = 'prc-social-builder';
@@ -27,6 +47,9 @@ class Bootstrap {
 		$this->init_dependencies();
 	}
 
+	/**
+	 * Load plugin class files and create the loader.
+	 */
 	private function load_dependencies() {
 		require_once plugin_dir_path( __DIR__ ) . '/includes/class-loader.php';
 		$this->loader = new Loader();
@@ -36,19 +59,20 @@ class Bootstrap {
 		require_once plugin_dir_path( __DIR__ ) . '/includes/class-settings.php';
 		require_once plugin_dir_path( __DIR__ ) . '/includes/admin-surfaces/class-admin-surfaces.php';
 		require_once plugin_dir_path( __DIR__ ) . '/includes/admin-surfaces/class-acp-column.php';
-		require_once plugin_dir_path( __DIR__ ) . '/includes/admin-surfaces/class-admin-bar.php';
 		require_once plugin_dir_path( __DIR__ ) . '/includes/admin-surfaces/class-dataviews-provider.php';
 		require_once plugin_dir_path( __DIR__ ) . '/includes/class-admin-dataview-lists.php';
 		require_once plugin_dir_path( __DIR__ ) . '/includes/class-nexus-system.php';
 	}
 
+	/**
+	 * Instantiate plugin services and register hooks.
+	 */
 	private function init_dependencies() {
 		new Assets( $this->get_loader() );
 		new Content_Type( $this->get_loader() );
 		new Hootsuite( $this->get_loader() );
 		new Settings( $this->get_loader() );
 		new Admin_Surfaces( $this->get_loader() );
-		new Admin_Bar( $this->get_loader() );
 		new ACP_Column( $this->get_loader() );
 		new DataViews_Provider( $this->get_loader() );
 		new Admin_Dataview_Lists( $this->get_loader() );
@@ -65,6 +89,9 @@ class Bootstrap {
 		);
 	}
 
+	/**
+	 * Register Social Builder blocks from build metadata.
+	 */
 	public function register_blocks(): void {
 		$blocks_dir = plugin_dir_path( __DIR__ ) . 'build/';
 		$blocks     = array( 'container', 'message', 'story' );
@@ -98,18 +125,36 @@ class Bootstrap {
 		);
 	}
 
+	/**
+	 * Run the plugin loader.
+	 */
 	public function run() {
 		$this->loader->run();
 	}
 
+	/**
+	 * Get the plugin slug.
+	 *
+	 * @return string
+	 */
 	public function get_plugin_name() {
 		return $this->plugin_name;
 	}
 
+	/**
+	 * Get the plugin loader.
+	 *
+	 * @return Loader
+	 */
 	public function get_loader() {
 		return $this->loader;
 	}
 
+	/**
+	 * Get the plugin version.
+	 *
+	 * @return string
+	 */
 	public function get_version() {
 		return $this->version;
 	}
