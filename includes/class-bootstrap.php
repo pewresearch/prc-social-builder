@@ -62,6 +62,7 @@ class Bootstrap {
 		require_once plugin_dir_path( __DIR__ ) . '/includes/admin-surfaces/class-dataviews-provider.php';
 		require_once plugin_dir_path( __DIR__ ) . '/includes/class-admin-dataview-lists.php';
 		require_once plugin_dir_path( __DIR__ ) . '/includes/class-nexus-system.php';
+		require_once plugin_dir_path( __DIR__ ) . '/includes/class-generate-copy-source-caps.php';
 	}
 
 	/**
@@ -76,6 +77,7 @@ class Bootstrap {
 		new ACP_Column( $this->get_loader() );
 		new DataViews_Provider( $this->get_loader() );
 		new Admin_Dataview_Lists( $this->get_loader() );
+		new Generate_Copy_Source_Caps( $this->get_loader() );
 		$this->loader->add_action( 'init', $this, 'register_blocks' );
 		add_action( 'plugins_loaded', array( $this, 'register_wp_ai_features' ), 11 );
 		add_action(

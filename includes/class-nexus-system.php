@@ -26,6 +26,8 @@ class Nexus_System {
 	public const TOOL = 'prc-social-builder/generate-social-copy';
 
 	/**
+	 * Register the Social Builder Nexus system.
+	 *
 	 * @hook prc_nexus_systems
 	 *
 	 * @param Systems $systems Registry.
@@ -41,7 +43,7 @@ class Nexus_System {
 				suggested_prompts: array(
 					new Suggested_Prompt(
 						'Draft social copy',
-						'Generate default-network social copy for a WordPress post. Ask me for the post ID if I have not given one.'
+						'Generate default-network social copy for a WordPress post. Paste a pewresearch.org URL if you have not given a post yet.'
 					),
 				),
 				required_capability: 'edit_posts'
@@ -62,7 +64,7 @@ class Nexus_System {
 				'If they pasted source text, use contentType preformatted.',
 				'If they name specific networks, set isDefaultList false and pass copyList with platform twitter, facebook, bluesky, linkedin, or threads.',
 				'If they want report chapters, set includeReportChildren true.',
-				'Ask for a numeric WordPress post ID when they name a report without one. Do not guess a post ID.',
+				'Use currentPostId from the nexus-post-working-set block for this post. If the editor names an earlier listed post, use that postId. Never invent a post ID. Ask for a pewresearch.org URL only when that block has no usable current post.',
 				'Return each platform copy in Slack. Quote numberCheck flagged values when present. Keep numbers exactly as generated.',
 				'This tool exists only when the Social Builder AI feature is enabled.',
 			)
