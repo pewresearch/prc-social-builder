@@ -37,7 +37,7 @@ class Nexus_System {
 			new System(
 				id: self::ID,
 				label: __( 'Social Builder', 'prc-social-builder' ),
-				summary: __( 'Draft social copy for Facebook, X, Bluesky, and LinkedIn from a post ID.', 'prc-social-builder' ),
+				summary: __( 'Draft social copy for Facebook, X, Bluesky, and LinkedIn from a post or a shared Word document.', 'prc-social-builder' ),
 				instructions: self::instructions(),
 				tools: array( self::TOOL ),
 				suggested_prompts: array(
@@ -62,6 +62,9 @@ class Nexus_System {
 				'When the editor wants copy, call prc-social-builder/generate-social-copy.',
 				'Default call: isDefaultList true, and content as one wp-post item with postId.',
 				'If they pasted source text, use contentType preformatted.',
+				'If the turn has a nexus-documents block with a documentId, call generate-social-copy with content as one item { contentType: "document", documentId }. Do not copy the document text into preformatted. Use that document instead of the current post unless the editor asks for both.',
+				'For a requested network (for example "a tweet" means X), set isDefaultList false and pass copyList with that platform only (use twitter for X).',
+				'If a documentId has expired or the file was skipped, say so and ask the editor to share the .docx again. Only Word .docx files can be read.',
 				'If they name specific networks, set isDefaultList false and pass copyList with platform twitter, facebook, bluesky, linkedin, or threads.',
 				'If they want report chapters, set includeReportChildren true.',
 				'Use currentPostId from the nexus-post-working-set block for this post. If the editor names an earlier listed post, use that postId. Never invent a post ID. Ask for a pewresearch.org URL only when that block has no usable current post.',

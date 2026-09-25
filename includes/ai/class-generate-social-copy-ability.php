@@ -9,6 +9,8 @@
 
 declare( strict_types=1 );
 
+// phpcs:disable Squiz.Commenting, Squiz.PHP.CommentedOutCode.Found
+
 namespace PRC\Platform\Social_Builder;
 
 use WP_Error;
@@ -30,6 +32,14 @@ class Generate_Social_Copy_Ability {
 	 * @var string
 	 */
 	private const PLUGIN_FILE = 'prc-social-builder/prc-social-builder.php';
+
+	/**
+	 * Longest shared-document source. Posts stop at 3000 characters; drafts
+	 * need more, and the summarize pass condenses long ones.
+	 *
+	 * @var int
+	 */
+	public const DOCUMENT_CHAR_LIMIT = 12000;
 
 	/**
 	 * Ability name.
@@ -126,11 +136,11 @@ class Generate_Social_Copy_Ability {
 	}
 	
 		/**
-	 * Instructions for the compression pass.
-	 *
-	 * Condenses one or more source documents into a factual findings digest that
-	 * the per-platform copy prompts consume.
-	 */
+		 * Instructions for the compression pass.
+		 *
+		 * Condenses one or more source documents into a factual findings digest that
+		 * the per-platform copy prompts consume.
+		 */
 	public static function get_summarizer_instructions(): string {
 			return <<<'PROMPT'
 	You are a research analyst preparing source material for a social media copywriter at a nonpartisan research organization.
@@ -153,7 +163,7 @@ class Generate_Social_Copy_Ability {
 	- Hard limit: 2000 characters total. If you must cut, drop the least notable bullets rather than trimming numbers or qualifiers out of the ones you keep.
 	
 	PROMPT;
-		}
+	}
 
 	/**
 	 * The default system prompt template.
@@ -200,7 +210,7 @@ Do not use markdown fences or extra prose. Example:
 					'properties'           => array(
 						'isDefaultList' => array(
 							'type'        => 'boolean',
-							'description' => 'Create the default social package set? (Facebook, LinkedIn, Twitter, Bluesky)'
+							'description' => 'Create the default social package set? (Facebook, LinkedIn, Twitter, Bluesky)',
 						),
 						'skipCopyEdits' => array(
 							'type'        => 'boolean',
@@ -216,15 +226,20 @@ Do not use markdown fences or extra prose. Example:
 							'items'       => array(
 								'type'       => 'object',
 								'properties' => array(
-									'contentType'              => array(
+									'contentType'  => array(
 										'type'        => 'string',
-										'description' => 'The type of content, must be either "wp-post" or "preformatted"',
+										'description' => 'The type of content: "wp-post", "preformatted", or "document" (a Word file shared with PRC Nexus).',
+										'enum'        => array( 'wp-post', 'preformatted', 'document' ),
 									),
-									'postId'                   => array(
+									'documentId'   => array(
+										'type'        => 'string',
+										'description' => 'For contentType "document": the documentId from the nexus-documents block.',
+									),
+									'postId'       => array(
 										'type'        => 'number',
 										'description' => 'The id of the post to generate social copy for.',
 									),
-									'includeReportChildren'    => array(
+									'includeReportChildren' => array(
 										'type'        => 'boolean',
 										'description' => 'Add children',
 									),
@@ -232,16 +247,16 @@ Do not use markdown fences or extra prose. Example:
 										'type'        => 'string',
 										'description' => 'List of ids to skip',
 									),
-									'preformatted'             => array(
+									'preformatted' => array(
 										'type'        => 'string',
 										'description' => 'Preformatted text to generate the social copy from',
 									),
 									// 'isSupplementary'          => array(
-									// 	'type'        => 'boolean',
-									// 	'description' => 'These are supplementary materials'
+									// 'type'        => 'boolean',
+									// 'description' => 'These are supplementary materials'
 									// ),
-								)
-							)
+								),
+							),
 						),
 						'copyList'      => array(
 							'type'        => 'array',
@@ -249,9 +264,9 @@ Do not use markdown fences or extra prose. Example:
 							'items'       => array(
 								'type'       => 'object',
 								'properties' => array(
-									'platform'              => array(
+									'platform'       => array(
 										'type'        => 'string',
-										'description' => 'One of the supported social platforms: twitter, facebook, threads, bluesky, linkedin'
+										'description' => 'One of the supported social platforms: twitter, facebook, threads, bluesky, linkedin',
 									),
 									'additionalInstructions' => array(
 										'type'        => 'string',
@@ -261,53 +276,53 @@ Do not use markdown fences or extra prose. Example:
 										'type'        => 'string',
 										'description' => 'Optional additional instructions from the editor to guide revision.',
 									),
-									'tone' => array(
+									'tone'           => array(
 										'type'        => 'string',
 										'description' => 'Optional tone guidance for the copy.',
 									),
 									'previousOutput' => array(
-										'type'                 => 'object',
-										'description'          => 'Optional previous generation to revise when regenerating.',
-										'properties'           => array(
-											'copy'    => array(
-												'type'        => 'string',
+										'type'        => 'object',
+										'description' => 'Optional previous generation to revise when regenerating.',
+										'properties'  => array(
+											'copy' => array(
+												'type' => 'string',
 												'description' => 'Previous copy text.',
 											),
 										),
 										'additionalProperties' => false,
 									),
-								)
-							)
+								),
+							),
 						),
-						'site_id'                => \PRC\Platform\AI\Utils\site_id_input_schema_property(),
+						'site_id'       => \PRC\Platform\AI\Utils\site_id_input_schema_property(),
 					),
 					'required'             => array( 'isDefaultList', 'content' ),
 					'additionalProperties' => false,
 				),
 				'output_schema'       => array(
-					'type'        => 'array',
-					'items'       => array(
+					'type'  => 'array',
+					'items' => array(
 						'type'       => 'object',
 						'properties' => array(
-							'platform' => array(
+							'platform'               => array(
 								'type'        => 'string',
-								'description' => 'One of the supported social platforms: facebook, x-twitter, linkedin, bluesky, instagram'
+								'description' => 'One of the supported social platforms: facebook, x-twitter, linkedin, bluesky, instagram',
 							),
 							'additionalInstructions' => array(
 								'type'        => 'string',
 								'description' => 'Optional additional instructions from the editor to guide generation.',
 							),
-							'copy' => array(
+							'copy'                   => array(
 								'type'        => 'string',
 								'description' => 'Generated social copy or an error message detailing what went wrong',
 							),
-							'numberCheck' => Number_Check::get_output_schema_fragment(),
-							'error' => array(
+							'numberCheck'            => Number_Check::get_output_schema_fragment(),
+							'error'                  => array(
 								'type'        => 'boolean',
 								'description' => 'True when unable to generate the copy',
 							),
-						)
-					)
+						),
+					),
 				),
 				'execute_callback'    => function ( $input ) {
 					return $this->with_site(
@@ -363,19 +378,19 @@ Do not use markdown fences or extra prose. Example:
 	private function get_default_social_package() {
 		return array(
 			array(
-				'platform' => 'facebook',
+				'platform'               => 'facebook',
 				'additionalInstructions' => '',
 			),
 			array(
-				'platform' => 'twitter',
+				'platform'               => 'twitter',
 				'additionalInstructions' => '',
 			),
 			array(
-				'platform' => 'bluesky',
+				'platform'               => 'bluesky',
 				'additionalInstructions' => '',
 			),
 			array(
-				'platform' => 'linkedin',
+				'platform'               => 'linkedin',
 				'additionalInstructions' => '',
 			),
 		);
@@ -385,11 +400,11 @@ Do not use markdown fences or extra prose. Example:
 	 * Extract and sanitize a text field from an input array.
 	 *
 	 * @param array<string, mixed> $input Input array.
-	 * @param string $key The key of the field to extract.
+	 * @param string               $key The key of the field to extract.
 	 * @return string The sanitized text field.
 	 */
 	private function extract_sanitized_text_field( array $input, string $key ) {
-		return isset( $input[$key] ) ? sanitize_text_field( (string) $input[$key] ) : '';
+		return isset( $input[ $key ] ) ? sanitize_text_field( (string) $input[ $key ] ) : '';
 	}
 
 	/**
@@ -406,11 +421,11 @@ Do not use markdown fences or extra prose. Example:
 		}
 		// Default copy
 		$social_copy_context = $content; 
-		$settings = ( class_exists( Settings::class ) ) ? Settings::get_settings() : false;
+		$settings            = ( class_exists( Settings::class ) ) ? Settings::get_settings() : false;
 		// Explicit summary-only requests always run summarization, even when the
 		// admin toggle is off. Otherwise honor the enable_summarization setting.
-		$return_summary = isset( $input['returnSummary'] ) ? (bool) $input['returnSummary'] : false;
-		$enable_summarization = ( $settings && ( $settings['enable_summarization'] ?? false ) );
+		$return_summary          = isset( $input['returnSummary'] ) ? (bool) $input['returnSummary'] : false;
+		$enable_summarization    = ( $settings && ( $settings['enable_summarization'] ?? false ) );
 		$maybe_summarize_content = $return_summary || $enable_summarization;
 
 		// Attempt to summarize the content
@@ -419,12 +434,12 @@ Do not use markdown fences or extra prose. Example:
 			$summarizer_prompt = self::get_summarizer_instructions(); 
 			if ( $settings ) {
 				$override_prompt = trim( $settings['system_prompts']['summarization_prompt'] ?? '' );
-				if ('' !== $override_prompt) {
+				if ( '' !== $override_prompt ) {
 					$summarizer_prompt = $override_prompt;
 				}
 			}
 
-			$summarize_content = $this->summarize_content( $content, $summarizer_prompt);
+			$summarize_content = $this->summarize_content( $content, $summarizer_prompt );
 			if ( is_wp_error( $summarize_content ) ) {
 				return $summarize_content;
 			}
@@ -433,7 +448,7 @@ Do not use markdown fences or extra prose. Example:
 				return array( $summarize_content );
 			}
 			// If the summary did not pass number checks 
-			if ( ! $summarize_content['numberCheck']['valid'] ){
+			if ( ! $summarize_content['numberCheck']['valid'] ) {
 				return new WP_Error( 'number_checks_failed_on_summary', __( 'Summary did not pass number checks.', 'prc-social-builder' ) );
 			}
 			// Set the new context
@@ -447,36 +462,36 @@ Do not use markdown fences or extra prose. Example:
 
 		// For each item in the list: 
 		foreach ( $social_package_list as $i => $social_copy_request ) {
-			$platform = $this->extract_sanitized_text_field($social_copy_request, 'platform');
+			$platform = $this->extract_sanitized_text_field( $social_copy_request, 'platform' );
 			if ( '' === $platform ) {
 				$social_package_list[ $i ]['error'] = true;
-				$social_package_list[ $i ]['copy'] = 'No platform provided.';
+				$social_package_list[ $i ]['copy']  = 'No platform provided.';
 				continue;
 			}
 			// Optional extra instructions
 			$requested_edits         = isset( $social_copy_request['requestedEdits'] )
 				? sanitize_textarea_field( (string) $social_copy_request['requestedEdits'] )
 				: '';
-			$additional_instructions = $this->extract_sanitized_text_field($social_copy_request, 'additionalInstructions');
+			$additional_instructions = $this->extract_sanitized_text_field( $social_copy_request, 'additionalInstructions' );
 
-			$previous_output         = $this->extract_previous_output( $social_copy_request );
+			$previous_output = $this->extract_previous_output( $social_copy_request );
 			// Character limit
-			$char_limit              = $this->get_platform_char_limit( $platform );
-			$style_guide             = '';
-			if ( $settings && ( $settings['enable_style_guide'] ?? false ) ){
-				$style_guide = self::get_social_style_guide(); 
+			$char_limit  = $this->get_platform_char_limit( $platform );
+			$style_guide = '';
+			if ( $settings && ( $settings['enable_style_guide'] ?? false ) ) {
+				$style_guide     = self::get_social_style_guide(); 
 				$override_prompt = trim( $settings['system_prompts']['style_guide_prompt'] ?? '' );
-				if ('' !== $override_prompt) {
+				if ( '' !== $override_prompt ) {
 					$style_guide = $override_prompt;
 				}
 			}
 			// Item specific instructions
-			$system                  = $this->build_system_instruction( $platform, $style_guide, $additional_instructions, $char_limit, $requested_edits, $previous_output );
-			$social_copy             = null; 
-			$retry                   = false; 
+			$system      = $this->build_system_instruction( $platform, $style_guide, $additional_instructions, $char_limit, $requested_edits, $previous_output );
+			$social_copy = null; 
+			$retry       = false; 
 
 			// Generat the copy, with one retry
-			while ( is_null( $social_copy) ) {
+			while ( is_null( $social_copy ) ) {
 				// Generate social copy
 				$raw = $this->generate_text_via_ai_client( $system, $social_copy_context, $retry );
 				// If there was an error, set social_copy to the error (this will exit the loop )
@@ -490,7 +505,7 @@ Do not use markdown fences or extra prose. Example:
 				// If there was an error parsing the data, and we're on our first pass, retry
 				if ( is_wp_error( $parsed ) && ! $retry ) { 
 					$retry = true;
-				// Otherwise exit with the results, error or no
+					// Otherwise exit with the results, error or no
 				} else {
 					$social_copy = $parsed;
 				}
@@ -498,8 +513,8 @@ Do not use markdown fences or extra prose. Example:
 			// If social copy is an error, set error to true and add the error message
 			if ( is_wp_error( $social_copy ) ) {
 				$social_package_list[ $i ]['error'] = true;
-				$social_package_list[ $i ]['copy'] = $social_copy->get_error_message();
-			// Otherwise, add the message
+				$social_package_list[ $i ]['copy']  = $social_copy->get_error_message();
+				// Otherwise, add the message
 			} else {
 				$social_package_list[ $i ]['copy'] = $social_copy['content'];
 			}
@@ -508,7 +523,7 @@ Do not use markdown fences or extra prose. Example:
 		$items = array();
 
 		foreach ( $social_package_list as $index => $message ) {
-			if ( isset($message['error']) && $message['error'] ){
+			if ( isset( $message['error'] ) && $message['error'] ) {
 				continue;
 			}
 			$items[] = array(
@@ -517,24 +532,56 @@ Do not use markdown fences or extra prose. Example:
 			);
 		}
 
-		$skip_copy_edits = isset( $input['skipCopyEdits'] ) ? $input['skipCopyEdits'] : false ;
+		$skip_copy_edits = isset( $input['skipCopyEdits'] ) ? $input['skipCopyEdits'] : false;
 
-		if ( ! $skip_copy_edits && ! empty( $items ) ){
+		if ( ! $skip_copy_edits && ! empty( $items ) ) {
 			$edited_items = Editorial_Passes::apply_batch( $items, $content );
 			if ( is_wp_error( $edited_items ) ) {
 				return $edited_items;
-			} 	
+			} 
 			foreach ( $edited_items as $index => $edited_item ) {
-				$id = (int) explode('-', $edited_item['id'])[2];
+				$id                                 = (int) explode( '-', $edited_item['id'] )[2];
 				$social_package_list[ $id ]['copy'] = $edited_item['text'];
 				$items[ $index ]['text']            = $edited_item['text'];
 			}
 		}
 
+		// Score edited copy against the original post. Generation may use a
+		// summary, but the neutrality pass rewrites against the full post and
+		// can restore grounded wording the digest left out.
+		$guardrail_source = is_string( $content ) ? $content : '';
+		if ( function_exists( '\PRC\Platform\AI\Utils\evaluate_generate_output' ) ) {
+			foreach ( $social_package_list as $i => $message ) {
+				if ( isset( $message['error'] ) && $message['error'] ) {
+					continue;
+				}
+				$guard = \PRC\Platform\AI\Utils\evaluate_generate_output(
+					(string) ( $message['copy'] ?? '' ),
+					$guardrail_source,
+					'social'
+				);
+				if ( is_wp_error( $guard ) ) {
+					$social_package_list[ $i ]['error'] = true;
+					$social_package_list[ $i ]['copy']  = $guard->get_error_message();
+				}
+			}
+		}
+
+		$items = array();
+		foreach ( $social_package_list as $index => $message ) {
+			if ( isset( $message['error'] ) && $message['error'] ) {
+				continue;
+			}
+			$items[] = array(
+				'id'   => 'social-copy-' . $index,
+				'text' => (string) $message['copy'],
+			);
+		}
+
 		$number_checks = Number_Check::annotate_many( $items, $content );
 		if ( null !== $number_checks ) {
 			foreach ( $items as $num_check_item ) {
-				$id = (int) explode('-', $num_check_item['id'])[2];
+				$id                                        = (int) explode( '-', $num_check_item['id'] )[2];
 				$social_package_list[ $id ]['numberCheck'] = $number_checks[ $num_check_item['id'] ];
 			}
 		}
@@ -568,13 +615,13 @@ Do not use markdown fences or extra prose. Example:
 	/**
 	 * Build the system instruction for the AI client.
 	 *
-	 * @param string                              $platform The platform to generate the copy for.
-	 * @param string                              $tone The tone of the copy.
-	 * @param string                              $additional_instructions Additional instructions from the editor.
-	 * @param int                                 $char_limit The character limit for the copy.
+	 * @param string                   $platform The platform to generate the copy for.
+	 * @param string                   $tone The tone of the copy.
+	 * @param string                   $additional_instructions Additional instructions from the editor.
+	 * @param int                      $char_limit The character limit for the copy.
 	 * @param array{copy: string}|null $previous_output Previous generation to revise.
 	 */
-	private function build_system_instruction( string $platform, string $style_guide, string $additional_instructions, int $char_limit, string $requested_edits, ?array $previous_output = null): string {
+	private function build_system_instruction( string $platform, string $style_guide, string $additional_instructions, int $char_limit, string $requested_edits, ?array $previous_output = null ): string {
 		// Resolve base template: admin override > default.
 		$override = '';
 		$settings = array();
@@ -592,12 +639,12 @@ Do not use markdown fences or extra prose. Example:
 		$instructions = strtr(
 			$template,
 			array(
-				'{{platform}}'     => ucfirst( $platform ),
-				'{{char_limit}}'   => (string) $char_limit,
+				'{{platform}}'   => ucfirst( $platform ),
+				'{{char_limit}}' => (string) $char_limit,
 			)
 		);
 
-		if ( '' !== $style_guide ) {	
+		if ( '' !== $style_guide ) {    
 			$instructions .= wp_sprintf( "\n\nAdhere to the style guide for voice, tone, and style: \n\n %s", $style_guide );
 		}
 
@@ -609,7 +656,7 @@ Do not use markdown fences or extra prose. Example:
 
 		if ( null !== $previous_output ) {
 			$instructions .= "\n\nRevise the following copy. Return a new result in the required JSON format.";
-			if ('' !== $requested_edits ) {
+			if ( '' !== $requested_edits ) {
 				$instructions .= "\n\nThe editor has requested the following edits:\n" . $requested_edits;
 			}
 			$instructions .= "\n\nCopy to revise:\n" . $previous_output['copy'];
@@ -629,7 +676,7 @@ Do not use markdown fences or extra prose. Example:
 	 *
 	 * @param string $system The system instruction for the AI client.
 	 * @param string $content The content to generate the copy for.
-	 * @param bool $retry Whether to retry the generation.
+	 * @param bool   $retry Whether to retry the generation.
 	 * @return string|WP_Error
 	 */
 	private function generate_text_via_ai_client( string $system, string $content, bool $retry ) {
@@ -638,11 +685,15 @@ Do not use markdown fences or extra prose. Example:
 		}
 
 		$prompt = ( $retry ) ? 
-		wp_sprintf( "%s\n\n%s\n\nPrevious output was invalid. Respond with ONLY valid JSON, e.g. [{\"content\":\"...\"}]:",
-			$system, $content
+		wp_sprintf(
+			"%s\n\n%s\n\nPrevious output was invalid. Respond with ONLY valid JSON, e.g. [{\"content\":\"...\"}]:",
+			$system,
+			$content
 		) : 
-		wp_sprintf( "%s\n\n%s\n\nReturn ONLY a JSON array of objects with the key \"content\":",
-			$system, $content
+		wp_sprintf(
+			"%s\n\n%s\n\nReturn ONLY a JSON array of objects with the key \"content\":",
+			$system,
+			$content
 		);
 
 
@@ -664,7 +715,7 @@ Do not use markdown fences or extra prose. Example:
 	 * Parse the social copy response from the AI client.
 	 *
 	 * @param string $response The response from the AI client.
-	 * @param int $char_limit The character limit for the copy.
+	 * @param int    $char_limit The character limit for the copy.
 	 * @return array<int, array<string, mixed>>|WP_Error
 	 */
 	private function parse_ai_results( string $response, int $char_limit ) {
@@ -697,7 +748,7 @@ Do not use markdown fences or extra prose. Example:
 		
 		// Build results 
 		$social_copy = array(
-			'content'  => $text,
+			'content' => $text,
 		);
 		
 		// Return results 
@@ -707,14 +758,14 @@ Do not use markdown fences or extra prose. Example:
 	/**
 	 * Prepare the content for the social copy generation.
 	 *
-	 * @param int $post_id The post ID to prepare the content for.
-	 * @param bool $use_children Whether to include the children of the post.
+	 * @param int   $post_id The post ID to prepare the content for.
+	 * @param bool  $use_children Whether to include the children of the post.
 	 * @param array $unselect_ids The IDs of the children to unselect.
 	 * @return array<string, mixed>|WP_Error
 	 */
-	public function prepare_content( $post_id, $use_children, $unselect_ids ){
+	public function prepare_content( $post_id, $use_children, $unselect_ids ) {
 		// Get the main post; return on error
-		$main_post    = $this->gather_content( $post_id );
+		$main_post = $this->gather_content( $post_id );
 		if ( is_wp_error( $main_post ) ) {
 			return $main_post;
 		}
@@ -722,7 +773,7 @@ Do not use markdown fences or extra prose. Example:
 			? array_map( 'intval', $unselect_ids )
 			: array();
 		// If children, and functions to support 
-		if ( $use_children  && function_exists( '\PRC\Platform\Report_Package\get_package_chapters' ) ) {
+		if ( $use_children && function_exists( '\PRC\Platform\Report_Package\get_package_chapters' ) ) {
 			$chapters = \PRC\Platform\Report_Package\get_package_chapters( $post_id );
 			foreach ( $chapters as $chapter ) {
 				if ( empty( $chapter['id'] ) ) {
@@ -742,8 +793,7 @@ Do not use markdown fences or extra prose. Example:
 					$child['title'],
 					$child['content']
 				);
-			}
-
+			}       
 		}
 		return $main_post;
 	}
@@ -772,8 +822,8 @@ Do not use markdown fences or extra prose. Example:
 		$content = wp_strip_all_tags( (string) $post->post_content, true );
 		$content = mb_substr( $content, 0, 3000 );
 		return array(
-			'title' => $title,
-			'content' => $content
+			'title'   => $title,
+			'content' => $content,
 		);
 	}
 
@@ -785,34 +835,39 @@ Do not use markdown fences or extra prose. Example:
 	 * @return string|WP_Error
 	 */
 	public function construct_content( $content_list ) {
-        if ( ! is_array($content_list) ) {
+		if ( ! is_array( $content_list ) ) {
 			return new WP_Error( 'incorrectly_formatted_content', __( 'Content incorrectly formatted', 'prc-social-builder' ) );
 		}
 
-        $constructed_content = '';
-        foreach( $content_list as $content_item ) {
-			$content_type = $this->extract_sanitized_text_field($content_item, 'contentType');
-            if ( 'preformatted' === $content_type ){
-			    $content = $this->extract_sanitized_text_field($content_item, 'preformatted');
-                if ( '' !== trim( $content ) ) {
-                     $constructed_content = wp_sprintf( "%s\n\n%s", $constructed_content, $content );
-                }
-            }elseif( 'wp-post' === $content_type ){
-                $content = $this->get_wp_post_content( $content_item );
+		$constructed_content = '';
+		foreach ( $content_list as $content_item ) {
+			$content_type = $this->extract_sanitized_text_field( $content_item, 'contentType' );
+			if ( 'preformatted' === $content_type ) {
+				$content = $this->extract_sanitized_text_field( $content_item, 'preformatted' );
+				if ( '' !== trim( $content ) ) {
+					$constructed_content = wp_sprintf( "%s\n\n%s", $constructed_content, $content );
+				}
+			} elseif ( 'wp-post' === $content_type ) {
+				$content = $this->get_wp_post_content( $content_item );
 				if ( is_wp_error( $content ) ) {
 					return $content;
 				}
 				if ( '' !== $content ) {
-                    $constructed_content = wp_sprintf( "%s\n\n%s", $constructed_content, $content );
-                }
-            }
-        }
+					$constructed_content = wp_sprintf( "%s\n\n%s", $constructed_content, $content );
+				}
+			} elseif ( 'document' === $content_type ) {
+				$content = $this->get_document_content( $content_item );
+				if ( is_wp_error( $content ) ) {
+					return $content;
+				}
+				$constructed_content = wp_sprintf( "%s\n\n%s", $constructed_content, $content );
+			}
+		}
 
-        return ( '' === $constructed_content ) ?  new WP_Error( 'missing_content', __( 'No content provided.', 'prc-social-builder' ) ) : $constructed_content;
+		return ( '' === $constructed_content ) ? new WP_Error( 'missing_content', __( 'No content provided.', 'prc-social-builder' ) ) : $constructed_content;
+	}
 
-    }
-
-	private function summarize_content( string $content, string $summarizer_prompt){
+	private function summarize_content( string $content, string $summarizer_prompt ) {
 		$system = $summarizer_prompt . "\n\n" . self::get_output_format_instruction();
 		// Summarize the content
 		$summarized_content = $this->generate_text_via_ai_client( $system, $content, false );
@@ -832,9 +887,9 @@ Do not use markdown fences or extra prose. Example:
 		}
 
 		$summarized = array( 
-			'platform' => 'summary',
-			'copy'     => $parsed_summarized_content['content'],
-			'numberCheck' => $passed_checks
+			'platform'    => 'summary',
+			'copy'        => $parsed_summarized_content['content'],
+			'numberCheck' => $passed_checks,
 		);
 
 		return $summarized;
@@ -847,10 +902,10 @@ Do not use markdown fences or extra prose. Example:
 	 * @return string|WP_Error
 	 */
 	public function get_wp_post_content( $input ) {
-        //Get the postid
-        $post_id = isset( $input['postId'] ) ? (int) $input['postId'] : 0;
-        // Should we include report children?
-		$use_children = isset( $input['includeReportChildren'] ) ? (bool) $input['includeReportChildren'] : false;
+		// Get the postid
+		$post_id = isset( $input['postId'] ) ? (int) $input['postId'] : 0;
+		// Should we include report children?
+		$use_children         = isset( $input['includeReportChildren'] ) ? (bool) $input['includeReportChildren'] : false;
 		$decoded_unselect_ids = isset( $input['unselectedReportChildren'] )
 			? json_decode( (string) $input['unselectedReportChildren'], true )
 			: array();
@@ -871,17 +926,73 @@ Do not use markdown fences or extra prose. Example:
 		if ( is_wp_error( $prepared_content ) ) {
 			return $prepared_content;
 		}
-		$title         = $prepared_content['title'];
-		$source_prefix = wp_sprintf("Post Title: %s\n\nPost Content:\n", $title );
-		$content       = mb_substr(
+		$title          = $prepared_content['title'];
+		$source_prefix  = wp_sprintf( "Post Title: %s\n\nPost Content:\n", $title );
+		$content        = mb_substr(
 			$prepared_content['content'],
 			0,
 			max( 0, Editorial_Passes::SOURCE_CHAR_LIMIT - mb_strlen( $source_prefix ) )
 		);
 		$titled_content = $source_prefix . $content;
 
-        return $titled_content;
-    }
+		return $titled_content;
+	}
+
+	/**
+	 * Resolve a shared Word document to its Markdown.
+	 *
+	 * The text keeps its newlines so tables, lists, and headings survive;
+	 * extract_sanitized_text_field() would collapse them. It skips
+	 * sanitize_textarea_field(), which escapes comparisons like "p < 0.05".
+	 *
+	 * @param array $input Content item with documentId.
+	 * @return string|WP_Error
+	 */
+	public function get_document_content( $input ) {
+		$document_id = isset( $input['documentId'] ) ? sanitize_text_field( (string) $input['documentId'] ) : '';
+		if ( '' === $document_id ) {
+			return new WP_Error( 'missing_document_id', __( 'No documentId provided for copy generation.', 'prc-social-builder' ) );
+		}
+
+		/**
+		 * Resolve a PRC Nexus document id to Markdown. prc-slack answers
+		 * for documents shared in Slack; ids expire after about an hour.
+		 *
+		 * @param string|null $text        Markdown, or null when unknown.
+		 * @param string      $document_id Document id.
+		 */
+		$markdown = apply_filters( 'prc_nexus_document_text', null, $document_id );
+		if ( ! is_string( $markdown ) || '' === trim( $markdown ) ) {
+			return new WP_Error(
+				'document_not_found',
+				__( 'The shared document was not found or has expired. Ask the user to share the file again.', 'prc-social-builder' )
+			);
+		}
+
+		$markdown      = trim( wp_check_invalid_utf8( $markdown, true ) );
+		$source_prefix = wp_sprintf( "Post Title: %s\n\nPost Content:\n", $this->document_title( $markdown ) );
+		$content       = mb_substr(
+			$markdown,
+			0,
+			max( 0, self::DOCUMENT_CHAR_LIMIT - mb_strlen( $source_prefix ) )
+		);
+
+		return $source_prefix . $content;
+	}
+
+	/**
+	 * First line of the document without Markdown markers, as a title.
+	 *
+	 * @param string $markdown Document Markdown.
+	 */
+	private function document_title( string $markdown ): string {
+		$token = strtok( $markdown, "\n" );
+		$line  = trim( (string) preg_replace( '/^[#>*\-\s]+|\*+/', '', false === $token ? '' : $token ) );
+		if ( '' === $line ) {
+			return 'Shared document';
+		}
+		return mb_strlen( $line ) > 200 ? mb_substr( $line, 0, 197 ) . '...' : $line;
+	}
 
 	/**
 	 * Run a callback on the requested target site.
