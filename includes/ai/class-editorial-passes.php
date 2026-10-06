@@ -22,9 +22,9 @@ class Editorial_Passes {
 
 	const HUMANIZER_ABILITY  = 'prc-ai/humanizer';
 	const NEUTRALITY_ABILITY = 'prc-ai/neutrality-tone-editor';
-	const MAX_ITEMS           = 10;
-	const MAX_ITEM_CHARS      = 3000;
-	const SOURCE_CHAR_LIMIT   = 15000;
+	const MAX_ITEMS          = 10;
+	const MAX_ITEM_CHARS     = 3000;
+	const SOURCE_CHAR_LIMIT  = 15000;
 
 	/**
 	 * Apply humanization, then optional source-grounded neutrality, to a batch.
@@ -32,11 +32,15 @@ class Editorial_Passes {
 	 * Humanizer is always required. Neutrality runs when enabled in settings
 	 * (default on) and fails closed when that ability or its result is unavailable.
 	 *
-	 * @param list<array{id: string, text: string}> $items  Stable-ID text items.
-	 * @param string                                $source Authoritative post source.
+	 * @param list<array{id: string, text: string}>  $items  Stable-ID text items.
+	 * @param string                                 $source Authoritative post source.
+	 * @param array{length_fallbacks?: list<string>} $report Optional. Filled with ids of items an editorial pass had to
+	 *                                                       trim at a boundary because model shortening failed.
 	 * @return list<array{id: string, text: string}>|WP_Error
 	 */
-	public static function apply_batch( array $items, string $source ) {
+	public static function apply_batch( array $items, string $source, array &$report = array() ) {
+		$report = array( 'length_fallbacks' => array() );
+
 		if ( ! function_exists( 'wp_get_ability' ) ) {
 			return new WP_Error(
 				'abilities_api_unavailable',
@@ -56,7 +60,7 @@ class Editorial_Passes {
 
 		$humanizer = null; 
 		if ( $humanity_enabled ) {
-			$humanizer          = wp_get_ability( self::HUMANIZER_ABILITY );
+			$humanizer = wp_get_ability( self::HUMANIZER_ABILITY );
 			if ( ! $humanizer ) {
 				return new WP_Error(
 					'editorial_ability_unavailable',
@@ -91,6 +95,8 @@ class Editorial_Passes {
 			);
 		}
 
+		$report['length_fallbacks'] = self::merge_length_fallbacks( $report['length_fallbacks'], $humanized );
+
 		if ( ! $neutrality_enabled ) {
 			return $humanized['items'];
 		}
@@ -115,7 +121,30 @@ class Editorial_Passes {
 			);
 		}
 
+		// A humanizer boundary trim only stands if neutrality kept that text as-is.
+		$still_trimmed = array();
+		foreach ( $humanized['items'] as $index => $item ) {
+			if ( in_array( $item['id'], $report['length_fallbacks'], true ) && $item['text'] === $neutralized['items'][ $index ]['text'] ) {
+				$still_trimmed[] = $item['id'];
+			}
+		}
+
+		$report['length_fallbacks'] = self::merge_length_fallbacks( $still_trimmed, $neutralized );
+
 		return $neutralized['items'];
+	}
+
+	/**
+	 * Add the ids an ability reported as boundary-trimmed.
+	 *
+	 * @param array                $existing Ids collected so far.
+	 * @param array<string, mixed> $result   Validated ability result.
+	 * @return array
+	 */
+	private static function merge_length_fallbacks( array $existing, array $result ): array {
+		$reported = isset( $result['length_fallbacks'] ) && is_array( $result['length_fallbacks'] ) ? $result['length_fallbacks'] : array();
+
+		return array_values( array_unique( array_merge( $existing, array_filter( $reported, 'is_string' ) ) ) );
 	}
 
 	/**
@@ -210,7 +239,7 @@ class Editorial_Passes {
 	/**
 	 * Confirm an ability returned every item once, in the original order.
 	 *
-	 * @param mixed                                  $result         Ability result.
+	 * @param mixed                                 $result         Ability result.
 	 * @param list<array{id: string, text: string}> $expected_items Original items.
 	 * @return bool
 	 */

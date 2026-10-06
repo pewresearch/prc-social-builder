@@ -63,6 +63,7 @@ class Bootstrap {
 		require_once plugin_dir_path( __DIR__ ) . '/includes/class-admin-dataview-lists.php';
 		require_once plugin_dir_path( __DIR__ ) . '/includes/class-nexus-system.php';
 		require_once plugin_dir_path( __DIR__ ) . '/includes/class-generate-copy-source-caps.php';
+		require_once plugin_dir_path( __DIR__ ) . '/includes/ai/class-platform-limits.php';
 	}
 
 	/**

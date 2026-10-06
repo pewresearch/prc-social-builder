@@ -39,6 +39,8 @@ class Generate_Story_Ability {
 	public static $ability_name = 'prc-social-builder/generate-story';
 
 	/**
+	 * Blocks the story ability may reference.
+	 *
 	 * @var array<int, string>
 	 */
 	public static $allowed_blocks = array();
@@ -81,6 +83,8 @@ Do not use markdown fences or extra prose.';
 	}
 
 	/**
+	 * Register the story ability.
+	 *
 	 * @hook wp_abilities_api_init
 	 */
 	public function register_ability(): void {
@@ -147,6 +151,14 @@ Do not use markdown fences or extra prose.';
 							'description' => 'Parallel descriptions for suggested media.',
 						),
 						'numberCheck'                => Number_Check::get_output_schema_fragment(),
+						'lengthAdjustments'          => array(
+							'type'                 => 'object',
+							'description'          => 'Fields that were over their length limit. "shortened" means the model rewrote the field to fit. "boundary-trim" means shortening failed and the field was cut at a sentence or word boundary; review it.',
+							'additionalProperties' => array(
+								'type' => 'string',
+								'enum' => array( 'shortened', 'boundary-trim' ),
+							),
+						),
 					),
 				),
 				'execute_callback'    => function ( $input ) {
@@ -183,6 +195,12 @@ Do not use markdown fences or extra prose.';
 		);
 	}
 
+	/**
+	 * Get the content guidelines packet text for a post.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return string
+	 */
 	private function get_content_guidelines( int $post_id ): string {
 		if ( ! function_exists( 'PRC\Platform\AI\Utils\get_content_guidelines_for_post' ) ) {
 			return '';
@@ -197,6 +215,9 @@ Do not use markdown fences or extra prose.';
 	}
 
 	/**
+	 * Get image attachment IDs for a post.
+	 *
+	 * @param int $post_id Post ID.
 	 * @return array<int, int>
 	 */
 	private function get_image_attachment_ids_for_post( int $post_id ): array {
@@ -212,6 +233,8 @@ Do not use markdown fences or extra prose.';
 	}
 
 	/**
+	 * Generate a story caption, overlay text, and media picks.
+	 *
 	 * @param array<string, mixed> $input Input parameters.
 	 * @return array<string, mixed>|WP_Error
 	 */
@@ -278,34 +301,49 @@ Do not use markdown fences or extra prose.';
 			}
 		}
 
-		$source_text = mb_substr( $title . "\n\n" . $content, 0, Editorial_Passes::SOURCE_CHAR_LIMIT );
-		$items       = array();
+		$source_text        = mb_substr( $title . "\n\n" . $content, 0, Editorial_Passes::SOURCE_CHAR_LIMIT );
+		$caption_limit      = min( Platform_Limits::get_story_target( $platform ), Editorial_Passes::MAX_ITEM_CHARS );
+		$overlay_limit      = Platform_Limits::get_field_target( 'storyOverlay' );
+		$length_adjustments = array();
+		$items              = array();
 		if ( '' !== $data['caption'] ) {
-			$data['caption'] = mb_substr( $data['caption'], 0, Editorial_Passes::MAX_ITEM_CHARS );
-			$items[]         = array(
+			$fitted          = \PRC\Platform\AI\Utils\shorten_text_to_limit( $data['caption'], $caption_limit );
+			$data['caption'] = $fitted['text'];
+			$this->record_length_adjustment( $length_adjustments, 'caption', $fitted );
+			$items[] = array(
 				'id'   => 'caption',
 				'text' => $data['caption'],
 			);
 		}
 		if ( '' !== $data['overlayText'] ) {
-			$data['overlayText'] = mb_substr( $data['overlayText'], 0, 80 );
-			$items[]             = array(
+			$fitted              = \PRC\Platform\AI\Utils\shorten_text_to_limit( $data['overlayText'], $overlay_limit );
+			$data['overlayText'] = $fitted['text'];
+			$this->record_length_adjustment( $length_adjustments, 'overlayText', $fitted );
+			$items[] = array(
 				'id'   => 'overlayText',
 				'text' => $data['overlayText'],
 			);
 		}
 
-		$edited_items = Editorial_Passes::apply_batch( $items, $source_text );
+		$editorial_report = array();
+		$edited_items     = Editorial_Passes::apply_batch( $items, $source_text, $editorial_report );
 		if ( is_wp_error( $edited_items ) ) {
 			return $edited_items;
+		}
+		foreach ( $editorial_report['length_fallbacks'] ?? array() as $fallback_id ) {
+			$length_adjustments[ $fallback_id ] = 'boundary-trim';
 		}
 
 		$items = array();
 		foreach ( $edited_items as $item ) {
 			if ( 'caption' === $item['id'] ) {
-				$data['caption'] = $item['text'];
+				$fitted          = \PRC\Platform\AI\Utils\shorten_text_to_limit( $item['text'], $caption_limit );
+				$data['caption'] = $fitted['text'];
+				$this->record_length_adjustment( $length_adjustments, 'caption', $fitted );
 			} elseif ( 'overlayText' === $item['id'] ) {
-				$data['overlayText'] = $item['text'];
+				$fitted              = \PRC\Platform\AI\Utils\shorten_text_to_limit( $item['text'], $overlay_limit );
+				$data['overlayText'] = $fitted['text'];
+				$this->record_length_adjustment( $length_adjustments, 'overlayText', $fitted );
 			}
 			$items[] = array(
 				'id'   => $item['id'],
@@ -326,7 +364,29 @@ Do not use markdown fences or extra prose.';
 			);
 		}
 
+		if ( array() !== $length_adjustments ) {
+			$data['lengthAdjustments'] = $length_adjustments;
+		}
+
 		return $data;
+	}
+
+	/**
+	 * Track which story fields were shortened or boundary-trimmed to fit.
+	 *
+	 * `boundary-trim` outranks `shortened`: shortening failed and the field was cut
+	 * at a sentence or word boundary, so an editor should review it.
+	 *
+	 * @param array<string, string>                                                                     $adjustments Field id to adjustment, updated in place.
+	 * @param string                                                                                    $field       Field id.
+	 * @param array{shortened: bool, fallback: bool, attempts: int, original_length: int, text: string} $fitted      Result of shorten_text_to_limit().
+	 */
+	private function record_length_adjustment( array &$adjustments, string $field, array $fitted ): void {
+		if ( $fitted['fallback'] ) {
+			$adjustments[ $field ] = 'boundary-trim';
+		} elseif ( $fitted['shortened'] && 'boundary-trim' !== ( $adjustments[ $field ] ?? '' ) ) {
+			$adjustments[ $field ] = 'shortened';
+		}
 	}
 
 	/**
@@ -358,7 +418,14 @@ Do not use markdown fences or extra prose.';
 	}
 
 	/**
+	 * Build the system instruction for the story prompt.
+	 *
+	 * @param string                                           $platform        Platform slug.
+	 * @param string                                           $available_ids   Available attachment IDs.
+	 * @param string                                           $guidelines      Content guidelines packet.
+	 * @param string                                           $additional      Additional instructions.
 	 * @param array{caption: string, overlayText: string}|null $previous_output Previous generation to revise.
+	 * @return string
 	 */
 	private function build_system_instruction( string $platform, string $available_ids, string $guidelines, string $additional = '', ?array $previous_output = null ): string {
 		// Resolve per-field overrides from settings sub-array.
@@ -422,6 +489,12 @@ Do not use markdown fences or extra prose.';
 		return $text;
 	}
 
+	/**
+	 * Run a prompt through the AI client.
+	 *
+	 * @param string $prompt Prompt text.
+	 * @return string|WP_Error
+	 */
 	private function generate_text_via_ai_client( string $prompt ): string|WP_Error {
 		if ( ! function_exists( 'wp_ai_client_prompt' ) ) {
 			return new WP_Error( 'ai_unavailable', __( 'AI client is not available.', 'prc-social-builder' ) );
@@ -441,7 +514,10 @@ Do not use markdown fences or extra prose.';
 	}
 
 	/**
-	 * @param array<int, int> $allowed_ids
+	 * Parse the story response from the AI client.
+	 *
+	 * @param string          $response    Raw model response.
+	 * @param array<int, int> $allowed_ids Attachment IDs the model may pick.
 	 * @return array<string, mixed>|WP_Error
 	 */
 	private function parse_story_response( string $response, array $allowed_ids ) {
@@ -483,8 +559,10 @@ Do not use markdown fences or extra prose.';
 
 		$count = count( $clean_ids );
 		if ( $count > 0 && count( $clean_descs ) < $count ) {
-			while ( count( $clean_descs ) < $count ) {
+			$desc_count = count( $clean_descs );
+			while ( $desc_count < $count ) {
 				$clean_descs[] = '';
+				++$desc_count;
 			}
 		}
 		$clean_descs = array_slice( $clean_descs, 0, $count );

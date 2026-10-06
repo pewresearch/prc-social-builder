@@ -317,6 +317,11 @@ Do not use markdown fences or extra prose. Example:
 								'description' => 'Generated social copy or an error message detailing what went wrong',
 							),
 							'numberCheck'            => Number_Check::get_output_schema_fragment(),
+							'lengthAdjustment'       => array(
+								'type'        => 'string',
+								'enum'        => array( 'shortened', 'boundary-trim' ),
+								'description' => 'Present when copy was over the platform limit. "shortened" means the model rewrote it to fit. "boundary-trim" means shortening failed and the copy was cut at a sentence or word boundary; review it.',
+							),
 							'error'                  => array(
 								'type'        => 'boolean',
 								'description' => 'True when unable to generate the copy',
@@ -359,15 +364,7 @@ Do not use markdown fences or extra prose. Example:
 	}
 
 	private function get_platform_char_limit( string $platform ): int {
-		$limits = array(
-			'twitter'  => 280,
-			'facebook' => 500,
-			'threads'  => 274,
-			'bluesky'  => 274,
-			'linkedin' => 3000,
-		);
-
-		return $limits[ strtolower( $platform ) ] ?? 280;
+		return Platform_Limits::get_social_target( $platform );
 	}
 
 	/**
@@ -460,6 +457,8 @@ Do not use markdown fences or extra prose. Example:
 			$input['copyList'] :
 			$this->get_default_social_package();
 
+		$char_limits = array();
+
 		// For each item in the list: 
 		foreach ( $social_package_list as $i => $social_copy_request ) {
 			$platform = $this->extract_sanitized_text_field( $social_copy_request, 'platform' );
@@ -501,7 +500,7 @@ Do not use markdown fences or extra prose. Example:
 				}
 				// Parse the results
 				$raw    = trim( $raw );
-				$parsed = $this->parse_ai_results( $raw, $char_limit );
+				$parsed = $this->parse_ai_results( $raw );
 				// If there was an error parsing the data, and we're on our first pass, retry
 				if ( is_wp_error( $parsed ) && ! $retry ) { 
 					$retry = true;
@@ -516,7 +515,10 @@ Do not use markdown fences or extra prose. Example:
 				$social_package_list[ $i ]['copy']  = $social_copy->get_error_message();
 				// Otherwise, add the message
 			} else {
-				$social_package_list[ $i ]['copy'] = $social_copy['content'];
+				$fitted                            = \PRC\Platform\AI\Utils\shorten_text_to_limit( $social_copy['content'], $char_limit );
+				$social_package_list[ $i ]['copy'] = $fitted['text'];
+				$char_limits[ $i ]                 = $char_limit;
+				$this->record_length_adjustment( $social_package_list[ $i ], $fitted );
 			}
 		}
 
@@ -535,14 +537,20 @@ Do not use markdown fences or extra prose. Example:
 		$skip_copy_edits = isset( $input['skipCopyEdits'] ) ? $input['skipCopyEdits'] : false;
 
 		if ( ! $skip_copy_edits && ! empty( $items ) ) {
-			$edited_items = Editorial_Passes::apply_batch( $items, $content );
+			$editorial_report = array();
+			$edited_items     = Editorial_Passes::apply_batch( $items, $content, $editorial_report );
 			if ( is_wp_error( $edited_items ) ) {
 				return $edited_items;
 			} 
 			foreach ( $edited_items as $index => $edited_item ) {
-				$id                                 = (int) explode( '-', $edited_item['id'] )[2];
-				$social_package_list[ $id ]['copy'] = $edited_item['text'];
-				$items[ $index ]['text']            = $edited_item['text'];
+				$id     = (int) explode( '-', $edited_item['id'] )[2];
+				$fitted = \PRC\Platform\AI\Utils\shorten_text_to_limit( $edited_item['text'], $char_limits[ $id ] );
+				if ( in_array( $edited_item['id'], $editorial_report['length_fallbacks'] ?? array(), true ) ) {
+					$fitted['fallback'] = true;
+				}
+				$social_package_list[ $id ]['copy'] = $fitted['text'];
+				$items[ $index ]['text']            = $fitted['text'];
+				$this->record_length_adjustment( $social_package_list[ $id ], $fitted );
 			}
 		}
 
@@ -587,6 +595,23 @@ Do not use markdown fences or extra prose. Example:
 		}
 
 		return $social_package_list;
+	}
+
+	/**
+	 * Flag a package item when its copy was shortened or boundary-trimmed to fit.
+	 *
+	 * `boundary-trim` means model shortening failed and the copy was cut at a
+	 * sentence or word boundary, so an editor should review it.
+	 *
+	 * @param array<string, mixed>                                                                     $entry  Package item, updated in place.
+	 * @param array{shortened: bool, fallback: bool, attempts: int, original_length: int, text: string} $fitted Result of shorten_text_to_limit().
+	 */
+	private function record_length_adjustment( array &$entry, array $fitted ): void {
+		if ( $fitted['fallback'] ) {
+			$entry['lengthAdjustment'] = 'boundary-trim';
+		} elseif ( $fitted['shortened'] && 'boundary-trim' !== ( $entry['lengthAdjustment'] ?? '' ) ) {
+			$entry['lengthAdjustment'] = 'shortened';
+		}
 	}
 
 	/**
@@ -715,10 +740,9 @@ Do not use markdown fences or extra prose. Example:
 	 * Parse the social copy response from the AI client.
 	 *
 	 * @param string $response The response from the AI client.
-	 * @param int    $char_limit The character limit for the copy.
 	 * @return array<int, array<string, mixed>>|WP_Error
 	 */
-	private function parse_ai_results( string $response, int $char_limit ) {
+	private function parse_ai_results( string $response ) {
 		$json_text = $response;
 		if ( preg_match( '/\[.*\]/s', $response, $matches ) ) {
 			$json_text = $matches[0];
@@ -741,12 +765,7 @@ Do not use markdown fences or extra prose. Example:
 			return new WP_Error( 'blank_copy', __( 'AI generated empty copy.', 'prc-social-builder' ) );
 		}
 
-		// Shorten copy
-		if ( mb_strlen( $text ) > $char_limit ) {
-			$text = mb_substr( $text, 0, $char_limit - 1 ) . '…';
-		}
-		
-		// Build results 
+		// Build results. Length is enforced by the caller, which can retry instead of cutting.
 		$social_copy = array(
 			'content' => $text,
 		);
@@ -876,21 +895,26 @@ Do not use markdown fences or extra prose. Example:
 		}
 
 		// Parse content 
-		$parsed_summarized_content = $this->parse_ai_results( $summarized_content, 3000 );
+		$parsed_summarized_content = $this->parse_ai_results( $summarized_content );
 		if ( is_wp_error( $parsed_summarized_content ) ) {
 			return $parsed_summarized_content;
 		}
+		$fitted = \PRC\Platform\AI\Utils\shorten_text_to_limit(
+			$parsed_summarized_content['content'],
+			Platform_Limits::get_field_target( 'summary' )
+		);
 		// Run number checks 
-		$passed_checks = Number_Check::annotate( $parsed_summarized_content['content'], $content );
+		$passed_checks = Number_Check::annotate( $fitted['text'], $content );
 		if ( null === $passed_checks ) { 
 			return new WP_Error( 'number_checks_failed', __( 'Number checks failed on compression.', 'prc-social-builder' ) );
 		}
 
 		$summarized = array( 
 			'platform'    => 'summary',
-			'copy'        => $parsed_summarized_content['content'],
+			'copy'        => $fitted['text'],
 			'numberCheck' => $passed_checks,
 		);
+		$this->record_length_adjustment( $summarized, $fitted );
 
 		return $summarized;
 	}
