@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from '@wordpress/element';
+/* eslint-disable prc/inspector-button-full-width -- the modal footer buttons share one row */
+import { useEffect, useRef, useState } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { store as editorStore } from '@wordpress/editor';
 import { useSelect } from '@wordpress/data';
@@ -12,6 +13,13 @@ import {
 } from '@wordpress/components';
 import { addQueryArgs } from '@wordpress/url';
 import { useAISuggest } from '@prc/components';
+
+const ADD_PACKAGE_ABILITY = 'prc-social-builder/add-social-package';
+const CANCEL_PACKAGE_ABILITY = 'prc-social-builder/cancel-social-package';
+
+function createRequestId(): string {
+	return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+}
 
 interface SocialPackageRecord {
 	id: number;
@@ -50,11 +58,15 @@ export default function SocialPackagesContent() {
 		error: socialError,
 		result,
 		fetch,
+		abort,
 		reset,
-		dismissError,
 	} = useAISuggest<{ newPostId: number }>({
-		abilityName: 'prc-social-builder/add-social-package',
+		abilityName: ADD_PACKAGE_ABILITY,
 	});
+	const { fetch: cancelOnServer, isLoading: isCancelling } = useAISuggest({
+		abilityName: CANCEL_PACKAGE_ABILITY,
+	});
+	const requestIdRef = useRef('');
 
 	// Get permissions
 	useEffect(() => {
@@ -111,6 +123,7 @@ export default function SocialPackagesContent() {
 					window.parent.parent.focus();
 				};
 			} else {
+				// eslint-disable-next-line no-alert
 				alert(text);
 			}
 		}
@@ -126,11 +139,24 @@ export default function SocialPackagesContent() {
 		);
 	};
 
+	const handleCancel = () => {
+		abort();
+		// The browser stops waiting, but the server may still be generating.
+		// This marks the request so the package is never saved.
+		cancelOnServer({ requestId: requestIdRef.current });
+		setError(null);
+		setIsPackageLoading(false);
+		reset();
+		closeModal();
+	};
+
 	const handleCreate = () => {
 		setError(null);
 		openModal();
 		setIsPackageLoading(true);
+		requestIdRef.current = createRequestId();
 		fetch({
+			requestId: requestIdRef.current,
 			isDefaultList: true,
 			blankTemplate: false,
 			associatedPostId: postInfo.postId,
@@ -143,6 +169,15 @@ export default function SocialPackagesContent() {
 			],
 		});
 	};
+
+	let primaryLabel = __('Open Package', 'prc-social-builder');
+	if (isLoading) {
+		primaryLabel = __('Creating…', 'prc-social-builder');
+	} else if (isPackageLoading) {
+		primaryLabel = __('Getting Link…', 'prc-social-builder');
+	} else if (error) {
+		primaryLabel = __('Retry', 'prc-social-builder');
+	}
 
 	return (
 		<VStack spacing="3">
@@ -185,9 +220,10 @@ export default function SocialPackagesContent() {
 				</p>
 			) : null}
 			<Button
+				__next40pxDefaultSize
 				variant="secondary"
 				onClick={handleCreate}
-				disabled={isLoading || !postInfo.postId}
+				disabled={isLoading || isCancelling || !postInfo.postId}
 				style={{ width: '100%', justifyContent: 'center' }}
 			>
 				{isLoading
@@ -205,8 +241,10 @@ export default function SocialPackagesContent() {
 				>
 					{isLoading && (
 						<p>
-							{' '}
-							<Spinner /> Creating Social Package...{' '}
+							{__(
+								'Creating Social Package…',
+								'prc-social-builder'
+							)}
 						</p>
 					)}
 					{error && (
@@ -217,11 +255,14 @@ export default function SocialPackagesContent() {
 					{!error && !isLoading && !socialError && (
 						<p>
 							Created{' '}
-							<strong>Social Package for "{packageTitle}"</strong>
+							<strong>
+								Social Package for &ldquo;{packageTitle}&rdquo;
+							</strong>
 						</p>
 					)}
 
 					<Button
+						__next40pxDefaultSize
 						variant="primary"
 						style={{
 							width: '48%',
@@ -232,26 +273,21 @@ export default function SocialPackagesContent() {
 						isBusy={isPackageLoading}
 						onClick={error ? handleCreate : handleOpenPackage}
 					>
-						{isPackageLoading
-							? isLoading
-								? __('Creating…', 'prc-social-builder')
-								: __('Getting Link...', 'prc-social-builder')
-							: error
-								? __('Retry', 'prc-social-builder')
-								: __('Open Package', 'prc-social-builder')}
+						{primaryLabel}
 					</Button>
 					<Button
+						__next40pxDefaultSize
 						variant="secondary"
 						style={{
 							width: '48%',
 							justifyContent: 'center',
 							margin: '0 0 0 2%',
 						}}
-						disabled={isLoading}
-						isBusy={isLoading}
-						onClick={closeModal}
+						onClick={isLoading ? handleCancel : closeModal}
 					>
-						Close
+						{isLoading
+							? __('Cancel', 'prc-social-builder')
+							: __('Close', 'prc-social-builder')}
 					</Button>
 				</Modal>
 			)}

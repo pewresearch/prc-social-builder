@@ -50,13 +50,14 @@ class Social_Builder_AI_Feature extends Abstract_Feature {
 	 * Register abilities and editor localization when the feature is enabled.
 	 */
 	public function register(): void {
-		$story   = new Generate_Story_Ability();
+		$story          = new Generate_Story_Ability();
 		$social_copy    = new Generate_Social_Copy_Ability();
 		$social_package = new Add_Social_Package_Ability();
 
 		add_action( 'wp_abilities_api_init', array( $story, 'register_ability' ) );
 		add_action( 'wp_abilities_api_init', array( $social_copy, 'register_ability' ) );
 		add_action( 'wp_abilities_api_init', array( $social_package, 'register_ability' ) );
+		add_action( 'wp_abilities_api_init', array( $social_package, 'register_cancel_ability' ) );
 
 		add_action( 'enqueue_block_editor_assets', array( $this, 'localize_ai_ability_names' ), 20 );
 	}
@@ -77,9 +78,9 @@ class Social_Builder_AI_Feature extends Abstract_Feature {
 			$handle,
 			'prcSocialBuilderAI',
 			array(
-				'enabled'            => true,
-				'storyAbilityName'   => Generate_Story_Ability::$ability_name,
-				'socialCopyAbilityName' => Generate_Social_Copy_Ability::$ability_name
+				'enabled'               => true,
+				'storyAbilityName'      => Generate_Story_Ability::$ability_name,
+				'socialCopyAbilityName' => Generate_Social_Copy_Ability::$ability_name,
 			)
 		);
 	}

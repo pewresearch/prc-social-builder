@@ -37,6 +37,20 @@ class Add_Social_Package_Ability {
 	public static $ability_name = 'prc-social-builder/add-social-package';
 
 	/**
+	 * Cancel ability name.
+	 *
+	 * @var string
+	 */
+	public static $cancel_ability_name = 'prc-social-builder/cancel-social-package';
+
+	/**
+	 * Seconds a cancel request stays valid. Covers the longest expected generation run.
+	 *
+	 * @var int
+	 */
+	private const CANCEL_TTL = 15 * MINUTE_IN_SECONDS;
+
+	/**
 	 * Blocks allowed to use this ability.
 	 *
 	 * @var array<int, string>
@@ -73,6 +87,10 @@ class Add_Social_Package_Ability {
 						'title'            => array(
 							'type'        => 'string',
 							'description' => 'Social package title',
+						),
+						'requestId'        => array(
+							'type'        => 'string',
+							'description' => 'Optional client-generated id. A matching cancel-social-package call made before the package is saved stops the package from being created.',
 						),
 						'skipCopyEdits'    => array(
 							'type'        => 'boolean',
@@ -177,6 +195,111 @@ class Add_Social_Package_Ability {
 
 
 	/**
+	 * Register the cancel ability with the Abilities API.
+	 *
+	 * @hook wp_abilities_api_init
+	 */
+	public function register_cancel_ability(): void {
+		wp_register_ability(
+			self::$cancel_ability_name,
+			array(
+				'label'               => __( 'Cancel a Social Package', 'prc-social-builder' ),
+				'description'         => __( 'Stops an in-flight add-social-package request from saving a package.', 'prc-social-builder' ),
+				'category'            => 'communication',
+				'input_schema'        => array(
+					'type'                 => 'object',
+					'properties'           => array(
+						'requestId' => array(
+							'type'        => 'string',
+							'description' => 'The requestId passed to add-social-package.',
+						),
+						'site_id'   => \PRC\Platform\AI\Utils\site_id_input_schema_property(),
+					),
+					'required'             => array( 'requestId' ),
+					'additionalProperties' => false,
+				),
+				'output_schema'       => array(
+					'type'       => 'object',
+					'properties' => array(
+						'cancelled' => array(
+							'type'        => 'boolean',
+							'description' => 'Whether the cancel request was recorded.',
+						),
+					),
+				),
+				'execute_callback'    => function ( $input ) {
+					return $this->with_site(
+						$input,
+						function () use ( $input ) {
+							return $this->cancel_social_package( $input );
+						}
+					);
+				},
+				'permission_callback' => function ( $input = null ) {
+					return $this->with_site(
+						$input,
+						function () {
+							return current_user_can( 'edit_posts' );
+						}
+					);
+				},
+				'meta'                => array(
+					'annotations'  => array(
+						'instructions' => 'Cancels a pending add-social-package request identified by requestId.',
+						'destructive'  => false,
+						'idempotent'   => true,
+					),
+					'show_in_rest' => true,
+				),
+			)
+		);
+	}
+
+	/**
+	 * Record a cancel request for an in-flight package creation.
+	 *
+	 * @param array<string, mixed> $input Input parameters.
+	 * @return array<string, bool>|WP_Error
+	 */
+	public function cancel_social_package( $input ) {
+		$request_id = isset( $input['requestId'] ) ? sanitize_key( (string) $input['requestId'] ) : '';
+		if ( '' === $request_id ) {
+			return new WP_Error( 'missing_request_id', __( 'Please provide a request id.', 'prc-social-builder' ) );
+		}
+		set_transient( $this->get_cancel_key( $request_id ), 1, self::CANCEL_TTL );
+		return array( 'cancelled' => true );
+	}
+
+	/**
+	 * Transient key that marks a request as cancelled.
+	 *
+	 * @param string $request_id Sanitized client request id.
+	 * @return string
+	 */
+	private function get_cancel_key( string $request_id ): string {
+		return 'prc_social_pkg_cancel_' . $request_id;
+	}
+
+	/**
+	 * Whether the client cancelled this request. Clears the marker when it is found.
+	 *
+	 * @param string $request_id Sanitized client request id.
+	 * @return bool
+	 */
+	private function consume_cancel( string $request_id ): bool {
+		if ( '' === $request_id ) {
+			return false;
+		}
+		$key = $this->get_cancel_key( $request_id );
+		if ( ! get_transient( $key ) ) {
+			return false;
+		}
+		delete_transient( $key );
+		return true;
+	}
+
+
+	/**
 	 * Build the generate-social-copy ability input.
 	 *
 	 * @param array<string, mixed> $input Ability input.
@@ -237,6 +360,11 @@ class Add_Social_Package_Ability {
 			if ( is_wp_error( $social_copy ) ) {
 				return $social_copy;
 			}
+		}
+
+		$request_id = isset( $input['requestId'] ) ? sanitize_key( (string) $input['requestId'] ) : '';
+		if ( $this->consume_cancel( $request_id ) ) {
+			return new WP_Error( 'cancelled', __( 'Social package creation was cancelled.', 'prc-social-builder' ) );
 		}
 
 		$posted = $this->post_social_package( $social_copy ?? array(), $package_title, $associated_post_id );
