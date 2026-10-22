@@ -35,7 +35,7 @@ built modules 2.35 KiB (css/mini-extract) 65.6 KiB (javascript) [1m[33m[built]
     [1m./src/container/index.ts + 21 modules[39m[22m 26.5 KiB [1m[31m[not cacheable][39m[22m [1m[33m[built][39m[22m [1m[33m[code generated][39m[22m
     [1m./src/message/index.ts + 14 modules[39m[22m 15.8 KiB [1m[31m[not cacheable][39m[22m [1m[33m[built][39m[22m [1m[33m[code generated][39m[22m
     [1m./src/story/index.ts + 20 modules[39m[22m 23.3 KiB [1m[31m[not cacheable][39m[22m [1m[33m[built][39m[22m [1m[33m[code generated][39m[22m
-webpack 5.106.2 compiled [1m[32msuccessfully[39m[22m in 8192 ms
+webpack 5.106.2 compiled [1m[32msuccessfully[39m[22m in 9873 ms
 Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
   npx update-browserslist-db@latest
   Why you should do it regularly: https://github.com/browserslist/update-db#readme
@@ -45,7 +45,7 @@ Entrypoint [1mindex[39m[22m 7.96 KiB = [1m[32mindex.js[39m[22m 7.68 KiB 
 orphan modules 223 KiB [1m[33m[orphan][39m[22m 331 modules
 runtime modules 663 bytes 3 modules
 [1m./src/editor-ui/index.tsx + 18 modules[39m[22m 15.6 KiB [1m[31m[not cacheable][39m[22m [1m[33m[built][39m[22m [1m[33m[code generated][39m[22m
-webpack 5.106.2 compiled [1m[32msuccessfully[39m[22m in 4141 ms
+webpack 5.106.2 compiled [1m[32msuccessfully[39m[22m in 4538 ms
 Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
   npx update-browserslist-db@latest
   Why you should do it regularly: https://github.com/browserslist/update-db#readme
@@ -61,7 +61,7 @@ runtime modules 2.51 KiB 3 modules
 built modules 9.58 KiB (javascript) 619 bytes (css/mini-extract) [1m[33m[built][39m[22m
   [1m./src/settings/index.tsx + 10 modules[39m[22m 9.58 KiB [1m[31m[not cacheable][39m[22m [1m[33m[built][39m[22m [1m[33m[code generated][39m[22m
   css ../../node_modules/css-loader/dist/cjs.js??ruleSet[1].rules[3].use[1]!../../node_modules/postcss-loader/dist/cjs.js??ruleSet[1].rules[3].use[2]!../../node_modules/sass-loader/dist/cjs.js??ruleSet[1].rules[3].use[3]![1m./src/settings/style.scss[39m[22m 619 bytes [1m[33m[built][39m[22m [1m[33m[code generated][39m[22m
-webpack 5.106.2 compiled [1m[32msuccessfully[39m[22m in 4353 ms
+webpack 5.106.2 compiled [1m[32msuccessfully[39m[22m in 4898 ms
 Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
   npx update-browserslist-db@latest
   Why you should do it regularly: https://github.com/browserslist/update-db#readme
@@ -77,4 +77,4 @@ runtime modules 2.51 KiB 3 modules
 cacheable modules 63 bytes (javascript) 290 bytes (css/mini-extract)
   [1m./src/admin-surfaces/index.ts[39m[22m 63 bytes [1m[33m[built][39m[22m [1m[33m[code generated][39m[22m
   css ../../node_modules/css-loader/dist/cjs.js??ruleSet[1].rules[3].use[1]!../../node_modules/postcss-loader/dist/cjs.js??ruleSet[1].rules[3].use[2]!../../node_modules/sass-loader/dist/cjs.js??ruleSet[1].rules[3].use[3]![1m./src/admin-surfaces/style.scss[39m[22m 290 bytes [1m[33m[built][39m[22m [1m[33m[code generated][39m[22m
-webpack 5.106.2 compiled [1m[32msuccessfully[39m[22m in 3784 ms
+webpack 5.106.2 compiled [1m[32msuccessfully[39m[22m in 4137 ms
