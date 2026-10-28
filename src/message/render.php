@@ -23,7 +23,7 @@ if ( '' === trim( wp_strip_all_tags( $inner_html ) ) && '' === trim( (string) $l
 
 $display = '' !== trim( $inner_html ) ? $inner_html : wp_kses_post( (string) $legacy );
 ?>
-<div <?php echo wp_kses_data( get_block_wrapper_attributes( array( 'class' => 'prc-social-message prc-social-message--' . esc_attr( $platform ) ) ) ); ?>>
+<div <?php echo get_block_wrapper_attributes( array( 'class' => 'prc-social-message prc-social-message--' . esc_attr( $platform ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- get_block_wrapper_attributes() escapes each value; kses would decode them (WP 7.2+). ?>>
 	<div class="prc-social-message__content">
 		<?php echo wp_kses_post( $display ); ?>
 	</div>
