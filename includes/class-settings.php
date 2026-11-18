@@ -30,6 +30,11 @@ class Settings {
 	const ADMIN_PAGE_SLUG = 'prc-social-builder-settings';
 
 	/**
+	 * Capability required to view and save settings. Held by Editors and Administrators.
+	 */
+	const SETTINGS_CAPABILITY = 'edit_others_posts';
+
+	/**
 	 * Default settings values.
 	 *
 	 * @var array<string, mixed>
@@ -61,6 +66,11 @@ class Settings {
 		),
 	);
 
+	/**
+	 * Registers hooks.
+	 *
+	 * @param Loader $loader Hook loader.
+	 */
 	public function __construct( Loader $loader ) {
 		$loader->add_action( 'admin_menu', $this, 'register_admin_page' );
 		$loader->add_action( 'admin_enqueue_scripts', $this, 'enqueue_admin_assets' );
@@ -104,6 +114,8 @@ class Settings {
 	}
 
 	/**
+	 * Adds the settings submenu page.
+	 *
 	 * @hook admin_menu
 	 */
 	public function register_admin_page(): void {
@@ -111,18 +123,25 @@ class Settings {
 			'edit.php?post_type=social-package',
 			__( 'Social Package Builder Settings', 'prc-social-builder' ),
 			__( 'Settings', 'prc-social-builder' ),
-			'manage_options',
+			self::SETTINGS_CAPABILITY,
 			self::ADMIN_PAGE_SLUG,
 			array( $this, 'render_admin_page' )
 		);
 	}
 
+	/**
+	 * Renders the settings page mount point.
+	 */
 	public function render_admin_page(): void {
 		Settings_Page_Boot::render( 'prc-social-builder-settings-admin' );
 	}
 
 	/**
+	 * Enqueues settings page assets.
+	 *
 	 * @hook admin_enqueue_scripts
+	 *
+	 * @param string $hook_suffix Current admin page hook suffix.
 	 */
 	public function enqueue_admin_assets( string $hook_suffix ): void {
 		if ( 'social-package_page_' . self::ADMIN_PAGE_SLUG !== $hook_suffix ) {
@@ -167,6 +186,8 @@ class Settings {
 	}
 
 	/**
+	 * Registers the settings REST routes.
+	 *
 	 * @hook rest_api_init
 	 */
 	public function register_routes(): void {
@@ -178,20 +199,23 @@ class Settings {
 					'methods'             => \WP_REST_Server::READABLE,
 					'callback'            => array( $this, 'get_settings_endpoint' ),
 					'permission_callback' => function (): bool {
-						return current_user_can( 'manage_options' );
+						return current_user_can( self::SETTINGS_CAPABILITY );
 					},
 				),
 				array(
 					'methods'             => \WP_REST_Server::CREATABLE,
 					'callback'            => array( $this, 'save_settings_endpoint' ),
 					'permission_callback' => function (): bool {
-						return current_user_can( 'manage_options' );
+						return current_user_can( self::SETTINGS_CAPABILITY );
 					},
 				),
 			)
 		);
 	}
 
+	/**
+	 * Returns settings and defaults.
+	 */
 	public function get_settings_endpoint(): \WP_REST_Response {
 		return rest_ensure_response(
 			array(
@@ -203,6 +227,11 @@ class Settings {
 		);
 	}
 
+	/**
+	 * Saves settings.
+	 *
+	 * @param \WP_REST_Request $request Request.
+	 */
 	public function save_settings_endpoint( \WP_REST_Request $request ): \WP_REST_Response {
 		$body = $request->get_json_params();
 		if ( ! is_array( $body ) ) {
@@ -225,7 +254,7 @@ class Settings {
 	/**
 	 * Sanitizes and clamps incoming settings values.
 	 *
-	 * @param array<string, mixed> $input
+	 * @param array<string, mixed> $input Raw settings.
 	 * @return array<string, mixed>
 	 */
 	private function sanitize_settings( array $input ): array {
@@ -243,18 +272,18 @@ class Settings {
 
 		$system_prompts = array();
 		if ( isset( $input['system_prompts'] ) && is_array( $input['system_prompts'] ) ) {
-			$system_prompts['generate-social-copy'] = self::get_textarea_value( 'generate-social-copy', $input['system_prompts']);
-			$system_prompts['summarization_prompt'] = self::get_textarea_value( 'summarization_prompt', $input['system_prompts']);
-			$system_prompts['style_guide_prompt']   = self::get_textarea_value( 'style_guide_prompt', $input['system_prompts']);
+			$system_prompts['generate-social-copy'] = self::get_textarea_value( 'generate-social-copy', $input['system_prompts'] );
+			$system_prompts['summarization_prompt'] = self::get_textarea_value( 'summarization_prompt', $input['system_prompts'] );
+			$system_prompts['style_guide_prompt']   = self::get_textarea_value( 'style_guide_prompt', $input['system_prompts'] );
 
 			// story is a sub-array of per-field instruction strings.
 			$raw_story                        = isset( $input['system_prompts']['generate-story'] ) && is_array( $input['system_prompts']['generate-story'] )
 				? $input['system_prompts']['generate-story']
 				: array();
 			$system_prompts['generate-story'] = array(
-				'caption'            => self::get_textarea_value( 'caption', $raw_story),
-				'overlay_text'       => self::get_textarea_value( 'overlay_text', $raw_story),
-				'media_descriptions' => self::get_textarea_value( 'media_descriptions', $raw_story)
+				'caption'            => self::get_textarea_value( 'caption', $raw_story ),
+				'overlay_text'       => self::get_textarea_value( 'overlay_text', $raw_story ),
+				'media_descriptions' => self::get_textarea_value( 'media_descriptions', $raw_story ),
 			);
 		} else {
 			$system_prompts = self::$defaults['system_prompts'];
@@ -275,14 +304,28 @@ class Settings {
 		);
 	}
 
-	private static function get_boolean_value(string $key, array $input ) {
+	/**
+	 * Reads a boolean setting, falling back to its default.
+	 *
+	 * @param string               $key   Setting key.
+	 * @param array<string, mixed> $input Source array.
+	 * @return bool
+	 */
+	private static function get_boolean_value( string $key, array $input ) {
 		return array_key_exists( $key, $input )
-			? (bool) filter_var( $input[$key], FILTER_VALIDATE_BOOLEAN )
-			: (bool) self::$defaults[$key];
+			? (bool) filter_var( $input[ $key ], FILTER_VALIDATE_BOOLEAN )
+			: (bool) self::$defaults[ $key ];
 	}
 
-	private static function get_textarea_value( string $key, array $input ){
-		$value = sanitize_textarea_field( (string) ( $input[$key] ?? '' ) );
+	/**
+	 * Sanitizes a textarea value.
+	 *
+	 * @param string               $key   Setting key.
+	 * @param array<string, mixed> $input Source array.
+	 * @return string
+	 */
+	private static function get_textarea_value( string $key, array $input ) {
+		$value = sanitize_textarea_field( (string) ( $input[ $key ] ?? '' ) );
 		return '' === trim( $value ) ? '' : $value;
 	}
 
