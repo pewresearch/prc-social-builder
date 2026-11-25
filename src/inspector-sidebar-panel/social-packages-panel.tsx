@@ -13,6 +13,7 @@ import {
 } from '@wordpress/components';
 import { addQueryArgs } from '@wordpress/url';
 import { useAISuggest } from '@prc/components';
+import useSocialPackageAlert from './social-package-alert';
 
 const ADD_PACKAGE_ABILITY = 'prc-social-builder/add-social-package';
 const CANCEL_PACKAGE_ABILITY = 'prc-social-builder/cancel-social-package';
@@ -33,6 +34,16 @@ export default function SocialPackagesContent() {
 		return {
 			postId: editInfo.getCurrentPostId(),
 			title: editInfo.getEditedPostAttribute('title') || '',
+		};
+	}, []);
+	const { userId, isCurrentUserReady } = useSelect((select) => {
+		const core = select('core');
+		return {
+			userId: (core.getCurrentUser()?.id as number) ?? 0,
+			isCurrentUserReady: core.hasFinishedResolution(
+				'getCurrentUser',
+				[]
+			),
 		};
 	}, []);
 	const [error, setError] = useState<string | null>(null);
@@ -67,17 +78,14 @@ export default function SocialPackagesContent() {
 		abilityName: CANCEL_PACKAGE_ABILITY,
 	});
 	const requestIdRef = useRef('');
-
-	// Get permissions
-	useEffect(() => {
-		if (
-			typeof Notification !== 'undefined' &&
-			Notification.permission === 'default'
-		) {
-			Notification.requestPermission();
-		}
-	}, []);
-
+	const packageTitle =
+		'' !== postInfo.title.trim()
+			? postInfo.title
+			: `Post #${postInfo.postId}`;
+	const { sendAlert, maybeAddFCMWorker } = useSocialPackageAlert(
+		packageTitle,
+		userId
+	);
 	// Update error to display social error
 	useEffect(() => {
 		if (socialError) {
@@ -88,7 +96,7 @@ export default function SocialPackagesContent() {
 			sendAlert(false);
 			setIsPackageLoading(false);
 		}
-	}, [error, socialError, reset]);
+	}, [error, socialError, sendAlert, reset]);
 
 	// If a new social post has been created, open the post,
 	// 	refresh the list of posts and reset our fetch function
@@ -99,35 +107,7 @@ export default function SocialPackagesContent() {
 			sendAlert(true);
 			reset();
 		}
-	}, [result, reset]);
-	const packageTitle =
-		'' !== postInfo.title.trim()
-			? postInfo.title
-			: `Post #${postInfo.postId}`;
-
-	const sendAlert = async (success: boolean) => {
-		const text = success
-			? `SUCCESS: Created "Social Package for ${packageTitle}"`
-			: `ERROR: Failed to create a social package for "${packageTitle}"`;
-		if (!document.hasFocus()) {
-			if (
-				typeof Notification !== 'undefined' &&
-				Notification.permission === 'granted'
-			) {
-				const img = '/wp-content/images/symbol-alt.svg';
-				const notif = new Notification('Social Package Builder', {
-					body: text,
-					icon: img,
-				});
-				notif.onclick = function () {
-					window.parent.parent.focus();
-				};
-			} else {
-				// eslint-disable-next-line no-alert
-				alert(text);
-			}
-		}
-	};
+	}, [result, reset, sendAlert]);
 
 	const handleOpenPackage = () => {
 		window.open(
@@ -152,6 +132,7 @@ export default function SocialPackagesContent() {
 
 	const handleCreate = () => {
 		setError(null);
+		maybeAddFCMWorker();
 		openModal();
 		setIsPackageLoading(true);
 		requestIdRef.current = createRequestId();
@@ -223,7 +204,12 @@ export default function SocialPackagesContent() {
 				__next40pxDefaultSize
 				variant="secondary"
 				onClick={handleCreate}
-				disabled={isLoading || isCancelling || !postInfo.postId}
+				disabled={
+					isLoading ||
+					isCancelling ||
+					!isCurrentUserReady ||
+					!postInfo.postId
+				}
 				style={{ width: '100%', justifyContent: 'center' }}
 			>
 				{isLoading

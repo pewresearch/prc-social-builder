@@ -87,7 +87,7 @@ class Assets {
 		wp_enqueue_script(
 			'prc-social-builder',
 			plugins_url( 'build/editor-ui/index.js', __DIR__ ),
-			array_merge( $plugin_asset_file['dependencies'], array( self::LIMITS_HANDLE ) ),
+			array_merge( $plugin_asset_file['dependencies'], array( self::LIMITS_HANDLE, 'firebase' ) ),
 			$plugin_asset_file['version'],
 			true
 		);
